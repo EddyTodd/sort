@@ -139,6 +139,34 @@ python3 tools/merge_policy_model.py \
 
 This distinguishes “better merge tree” from “faster implementation.” `campaigns/merge-policies-v1.json` is the Tier-2 evidence contract for H14-H15. See [`docs/adaptive-merge-research.md`](docs/adaptive-merge-research.md).
 
+## Adaptive merge kernels
+
+After fixing run scheduling, the repository can ask a different question: **how should two selected adjacent runs actually be merged?** `sort_merge_kernels` freezes Powersort scheduling and balanced variable minrun, then varies two kernel mechanisms independently:
+
+- **buffer policy:** copy both runs versus copy only the smaller run;
+- **search policy:** linear merging versus exponential-plus-binary galloping.
+
+The smaller-run treatment merges forward when the left run is buffered and backward when the right run is buffered. Its requested workspace for a merge of lengths `a` and `b` is `min(a,b)`, which is at most half of the merged run size. That is a structural memory result, not automatically a wall-time or cache result.
+
+```sh
+./build/sort_merge_kernels \
+  --gallop-thresholds 4,7,12,16 \
+  --patterns random,nearly_sorted,run_long_short,run_power_skew,run_fibonacci \
+  --sizes 64,128,315,1024,4096,16384,65536 \
+  --trials 51 > merge-kernels.csv
+
+python3 tools/analyze_merge_kernels.py merge-kernels.csv \
+  --baseline smaller_gallop_7 --bootstrap 5000 \
+  --output merge-kernel-summary.csv
+
+python3 tools/tune_gallop.py merge-kernels.csv \
+  --output gallop-heldout.csv
+```
+
+Galloping begins after a fixed consecutive-win threshold, uses exponential search to bracket the boundary, then binary search to finish it. `tools/tune_gallop.py` selects the threshold only on training trials and evaluates it held-out against linear merging under the same buffer policy. The repository therefore does not assume that a historical threshold such as 7 is universally optimal.
+
+The instrumented pass reports requested/actual temporary workspace, elements copied into workspace, comparisons/writes, gallop entries, and elements consumed through gallop phases. `campaigns/merge-kernels-v1.json` is the Tier-2 evidence contract for H16-H17. See [`docs/adaptive-merge-kernels.md`](docs/adaptive-merge-kernels.md).
+
 ## Experimental algorithm portfolios
 
 The scalar benchmark records a small, deterministic input-feature probe **after all timed competitors have run**, preventing the probe from warming a later timed sort. It records feature-extraction time plus sampled disorder, duplicate density, and key-range width.
@@ -214,7 +242,7 @@ cmake --build build-san -j
 ctest --test-dir build-san --output-on-failure
 ```
 
-The local test suite covers scalar correctness, record correctness/stability/payload integrity, insertion cutoffs, tiny-kernel correctness, hybrid leaf treatments, adaptive merge scheduling/minrun treatments, hardware-counter behavior, allocation accounting, robust statistical reducers, exact merge-policy models, crossover detection, held-out cutoff/kernel tuning, claim definitions, and held-out portfolio evaluation.
+The local test suite covers scalar correctness, record correctness/stability/payload integrity, insertion cutoffs, tiny-kernel correctness, hybrid leaf treatments, adaptive merge scheduling/minrun treatments, adaptive merge buffer/gallop treatments, hardware-counter behavior, allocation accounting, robust statistical reducers, exact merge-policy models, crossover detection, held-out cutoff/kernel/gallop tuning, claim definitions, and held-out portfolio evaluation.
 
 ## Reproducibility bundle
 
@@ -246,6 +274,7 @@ Raw trials remain canonical. No automatic outlier deletion is performed.
 - [`docs/hybrid-research.md`](docs/hybrid-research.md): insertion cutoffs, hybrid hypotheses, held-out tuning, and portfolio research.
 - [`docs/tiny-kernel-research.md`](docs/tiny-kernel-research.md): sorting networks, tiny-array comparisons, H12-H13, and joint leaf-kernel/cutoff tuning.
 - [`docs/adaptive-merge-research.md`](docs/adaptive-merge-research.md): run detection, minrun policies, TimSort/Powersort scheduling, exact merge-cost models, H14-H15, and evidence boundaries.
+- [`docs/adaptive-merge-kernels.md`](docs/adaptive-merge-kernels.md): full/smaller-run buffering, galloping, held-out threshold tuning, H16-H17, and stability/evidence boundaries.
 - [`docs/methodology.md`](docs/methodology.md): benchmark contract and threats to validity.
 - [`docs/research-protocol.md`](docs/research-protocol.md): hypotheses, experiment tiers, statistical rules, and publication gates.
 - [`docs/records.md`](docs/records.md): record-width and empirical-stability contract.
@@ -259,7 +288,7 @@ Raw trials remain canonical. No automatic outlier deletion is performed.
 
 ## What “complete” means here
 
-The portable core is a mature **single-threaded, in-memory sorting research laboratory**, not an assertion that every known sorter or machine model has already been exhausted. Architecture-specific SIMD sorters, parallel algorithms, GPUs, external-memory sorting, NUMA studies, variable-size strings/objects, additional production merge kernels, and more third-party state-of-the-art implementations remain separate experiment models. Their current status is explicit in [`TECHNICAL_DEBT.md`](TECHNICAL_DEBT.md).
+The portable core is a mature **single-threaded, in-memory sorting research laboratory**, not an assertion that every known sorter or machine model has already been exhausted. Architecture-specific SIMD sorters, parallel algorithms, GPUs, external-memory sorting, NUMA studies, variable-size strings/objects, production-specific adaptive gallop policies, and more third-party state-of-the-art implementations remain separate experiment models. Their current status is explicit in [`TECHNICAL_DEBT.md`](TECHNICAL_DEBT.md).
 
 No performance table belongs in this README until it satisfies the publication gate with raw data, a manifest, uncertainty, and replication.
 

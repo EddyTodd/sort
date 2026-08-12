@@ -57,6 +57,26 @@ The track also includes five controlled run-shape families and an exact optimal 
 
 These implementations are not inserted into the frozen 23-algorithm `canonical-v1` campaign retroactively. They have a separate `merge-policies-v1` Tier-2 contract; integration into a later unified portfolio requires a new versioned campaign.
 
+## Adaptive merge-kernel track
+
+`sort_merge_kernels` studies the next independent layer of the adaptive merge stack. It freezes **Powersort scheduling + balanced variable minrun** as a controlled reference context, then varies the mechanism used to merge two already-selected adjacent runs.
+
+Temporary-buffer treatments:
+
+- `full`: copy both runs into reusable workspace;
+- `smaller`: copy only the smaller run and merge forward or backward as required.
+
+Search treatments:
+
+- `linear`: ordinary element-by-element stable merge;
+- `gallop`: after a consecutive-win threshold, use exponential search to bracket a boundary followed by binary search, then copy the discovered block.
+
+The canonical campaign treats gallop threshold as a tunable parameter (`4, 7, 12, 16`) rather than creating a permanent top-level sorter name for every threshold. `tools/tune_gallop.py` selects the threshold on training trials and evaluates it held-out against linear merging under the same buffer policy.
+
+The smaller-run buffer has a structural per-merge workspace bound of `min(a,b) <= floor((a+b)/2)`. That fact is reported separately from empirical wall time, cache behavior, or memory-bandwidth claims.
+
+This track has its own `merge-kernels-v1` Tier-2 contract and H16-H17 evidence requirements. It does not modify the frozen H14-H15 scheduler/minrun experiment. See `docs/adaptive-merge-kernels.md`.
+
 ## Implemented record algorithms
 
 The record-width laboratory intentionally uses a smaller representative set: insertion, heap, stable merge, two-way quicksort, three-way quicksort, introsort, stable radix, `std::sort`, and `std::stable_sort`. The goal is factorial control over payload width and stability, not duplicating every scalar variant for every record type.
@@ -98,11 +118,13 @@ A variant gets its own algorithm name when it changes a scientifically material 
 - leaf algorithm;
 - merge order/run policy;
 - minrun/run-extension policy;
+- temporary-buffer strategy;
+- merge search/galloping strategy;
 - stability or in-place guarantee;
 - branchless/vectorized partitioning;
 - parallelism or memory strategy.
 
-Continuous/tunable parameters should normally live in a tuning experiment rather than creating hundreds of permanent algorithm names.
+Continuous/tunable parameters such as cutoffs and gallop thresholds should normally live in a tuning experiment rather than creating hundreds of permanent algorithm names.
 
 ## Completion criterion
 

@@ -7,6 +7,7 @@ Campaign JSON files are versioned experiment contracts. They define **what to ru
 - `external-v1.json` is a separate Tier-2 contract for provenance-pinned engineered external baselines. It requires an external-enabled build produced only after `tools/bootstrap_external.py` verifies the pinned source checkouts.
 - `tiny-kernels-v1.json` is the Tier-2 contract for direct small-set kernels and jointly tuned hybrid leaf kernels/cutoffs. It is the canonical evidence path for H12-H13.
 - `merge-policies-v1.json` is the Tier-2 factorial contract for H14-H15: three stable adaptive merge schedules crossed with three minrun policies using a common merge kernel.
+- `merge-kernels-v1.json` is the Tier-2 contract for H16-H17: Powersort + balanced minrun are frozen while full/smaller-run buffers and linear/galloping merge search are compared.
 
 Run dry plans first:
 
@@ -14,6 +15,7 @@ Run dry plans first:
 python3 tools/campaign.py campaigns/canonical-v1.json --binary-dir build --dry-run
 python3 tools/campaign.py campaigns/tiny-kernels-v1.json --binary-dir build --dry-run
 python3 tools/campaign.py campaigns/merge-policies-v1.json --binary-dir build --dry-run
+python3 tools/campaign.py campaigns/merge-kernels-v1.json --binary-dir build --dry-run
 python3 tools/campaign.py campaigns/external-v1.json --binary-dir build-external --dry-run
 ```
 
@@ -30,6 +32,10 @@ python3 tools/campaign.py campaigns/tiny-kernels-v1.json \
 
 python3 tools/campaign.py campaigns/merge-policies-v1.json \
   --binary-dir build --output-root results/campaigns-merge-policies \
+  --cpu 2 --settle-ms 1000 --resume
+
+python3 tools/campaign.py campaigns/merge-kernels-v1.json \
+  --binary-dir build --output-root results/campaigns-merge-kernels \
   --cpu 2 --settle-ms 1000 --resume
 ```
 
@@ -49,7 +55,9 @@ python3 tools/campaign.py campaigns/external-v1.json \
 
 The tiny-kernel campaign deliberately keeps direct-kernel and integrated-hybrid experiments separate. A direct small-array winner is not automatically promoted to the preferred hybrid leaf. Joint leaf-kernel/cutoff tuning uses training trials, while the selected treatment is evaluated on held-out trials against the best insertion-only cutoff selected from the same training data.
 
-The adaptive-merge campaign holds the stable merge kernel constant while varying scheduler and minrun policy. Structural merge cost/entropy is reported beside, not in place of, paired wall time. The preregistered `powersort + balanced` analysis baseline is a comparison reference, not a declared winner.
+The adaptive merge-policy campaign holds the stable merge kernel constant while varying scheduler and minrun policy. Structural merge cost/entropy is reported beside, not in place of, paired wall time. The preregistered `powersort + balanced` analysis baseline is a comparison reference, not a declared winner.
+
+The adaptive merge-kernel campaign does the reverse: scheduler and minrun are frozen while the two-run merge mechanism varies. `tools/tune_gallop.py` selects a gallop threshold only on training trials and evaluates it on held-out trials against linear merging under the same buffer policy. The broad-analysis `smaller_gallop_7` baseline is a named reference, not a declared winner or universal threshold.
 
 Platform-scoped experiments are explicit. The hardware-counter experiment is Linux-only and is recorded as `skipped-platform` elsewhere; this is not treated as a failed or zero-valued measurement.
 

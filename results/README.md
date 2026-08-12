@@ -8,13 +8,16 @@ Single-run artifacts use:
 <run-id>/manifest.json
 <run-id>/raw.csv
 <run-id>/summary.csv
-<run-id>/NOTES.md                 # optional
-<run-id>/claims.csv               # optional
-<run-id>/crossovers.csv           # optional
-<run-id>/cutoff-summary.csv       # optional, must preserve train/evaluation split
-<run-id>/tiny-summary.csv         # optional, paired tiny-kernel reduction
-<run-id>/leaf-tuning.csv          # optional, held-out kernel+cutoff evaluation
-<run-id>/portfolio-summary.csv    # optional, held-out selector evaluation
+<run-id>/NOTES.md                        # optional
+<run-id>/claims.csv                      # optional
+<run-id>/crossovers.csv                  # optional
+<run-id>/cutoff-summary.csv              # optional, must preserve train/evaluation split
+<run-id>/tiny-summary.csv                # optional, paired tiny-kernel reduction
+<run-id>/leaf-tuning.csv                 # optional, held-out kernel+cutoff evaluation
+<run-id>/merge-policy-summary.csv        # optional, paired scheduler/minrun reduction
+<run-id>/merge-kernel-summary.csv        # optional, paired buffer/gallop reduction
+<run-id>/gallop-heldout.csv              # optional, held-out gallop-threshold evaluation
+<run-id>/portfolio-summary.csv           # optional, held-out selector evaluation
 ```
 
 Versioned multi-run campaigns use:
@@ -30,6 +33,10 @@ campaigns/<campaign-id>/<experiment-id>/rep-001/<derived analysis files>
 The committed experiment contract lives in `campaigns/*.json`. `campaign-manifest.json` records its content hash and the status of every planned repetition. `tools/validate_artifacts.py` must pass before a run is attached to `claims/registry.json` as evidence.
 
 Tiny-kernel direct results and integrated leaf-hybrid results remain separate artifacts because they answer different claims. A leaf treatment selected from training data must retain its held-out evaluation output rather than publishing the training winner alone.
+
+Adaptive merge scheduler/minrun results and two-run merge-kernel results also remain separate artifacts. `merge-policies-v1` changes the merge tree while holding the merge kernel fixed; `merge-kernels-v1` freezes the scheduler/minrun context while changing buffering and galloping. Combining those raw treatments into one apparent factorial experiment would misrepresent the preregistered contracts.
+
+A gallop threshold selected from training observations must retain `gallop-heldout.csv`. The training-selected threshold alone is not evidence that galloping improves held-out performance or that one threshold is portable across environments.
 
 Hardware-counter and allocation campaigns retain distinct experiment IDs because their measurement contracts differ from canonical wall-time runs. A platform skip is absence of that measurement, never a zero-valued observation.
 

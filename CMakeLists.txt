@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(sort_lab VERSION 0.8.0 LANGUAGES CXX)
+project(sort_lab VERSION 0.9.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -29,6 +29,7 @@ sortlab_executable(sort_alloc src/sort_alloc.cpp)
 sortlab_executable(sort_tiny src/sort_tiny.cpp)
 sortlab_executable(sort_leaf_hybrids src/sort_leaf_hybrids.cpp)
 sortlab_executable(sort_merge_policies src/sort_merge_policies.cpp)
+sortlab_executable(sort_merge_kernels src/sort_merge_kernels.cpp)
 
 include(CTest)
 include(cmake/ExternalBaselines.cmake)
@@ -54,6 +55,7 @@ if(BUILD_TESTING)
   add_test(NAME tiny_kernel_self_test COMMAND sort_tiny --self-test)
   add_test(NAME leaf_hybrid_self_test COMMAND sort_leaf_hybrids --self-test)
   add_test(NAME adaptive_merge_self_test COMMAND sort_merge_policies --self-test)
+  add_test(NAME adaptive_merge_kernel_self_test COMMAND sort_merge_kernels --self-test)
   add_test(
     NAME tiny_kernel_smoke_benchmark
     COMMAND sort_tiny --trials 2 --warmups 0 --sizes 2,7,16,31
@@ -68,6 +70,11 @@ if(BUILD_TESTING)
     COMMAND sort_merge_policies --trials 2 --warmups 0 --sizes 31,64,315
             --patterns random,sorted,run_long_short,run_fibonacci
             --policies pairwise,timsort_stack,powersort --minruns none,classic,balanced)
+  add_test(
+    NAME adaptive_merge_kernel_smoke_benchmark
+    COMMAND sort_merge_kernels --trials 2 --warmups 0 --sizes 64,315
+            --patterns random,run_long_short,run_alternating_direction
+            --gallop-thresholds 4,7)
 
   find_package(Python3 COMPONENTS Interpreter QUIET)
   if(Python3_Interpreter_FOUND)
@@ -105,5 +112,9 @@ if(BUILD_TESTING)
              COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/analyze_merge_policies.py --self-test)
     add_test(NAME merge_policy_model_self_test
              COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/merge_policy_model.py --self-test)
+    add_test(NAME adaptive_merge_kernel_analysis_self_test
+             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/analyze_merge_kernels.py --self-test)
+    add_test(NAME gallop_tuning_self_test
+             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/tune_gallop.py --self-test)
   endif()
 endif()
