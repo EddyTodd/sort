@@ -5,11 +5,13 @@ Campaign JSON files are versioned experiment contracts. They define **what to ru
 - `smoke.json` is a fast end-to-end pipeline check. Its results are not canonical research evidence.
 - `canonical-v1.json` is the first Tier-2 campaign contract for the portable core. It uses two independent repetitions per experiment and fixed analysis commands.
 - `external-v1.json` is a separate Tier-2 contract for provenance-pinned engineered external baselines. It requires an external-enabled build produced only after `tools/bootstrap_external.py` verifies the pinned source checkouts.
+- `tiny-kernels-v1.json` is the Tier-2 contract for direct small-set kernels and jointly tuned hybrid leaf kernels/cutoffs. It is the canonical evidence path for H12-H13.
 
-Run a dry plan first:
+Run dry plans first:
 
 ```sh
 python3 tools/campaign.py campaigns/canonical-v1.json --binary-dir build --dry-run
+python3 tools/campaign.py campaigns/tiny-kernels-v1.json --binary-dir build --dry-run
 python3 tools/campaign.py campaigns/external-v1.json --binary-dir build-external --dry-run
 ```
 
@@ -18,6 +20,10 @@ Then execute on a controlled host:
 ```sh
 python3 tools/campaign.py campaigns/canonical-v1.json \
   --binary-dir build --output-root results/campaigns \
+  --cpu 2 --settle-ms 1000 --resume
+
+python3 tools/campaign.py campaigns/tiny-kernels-v1.json \
+  --binary-dir build --output-root results/campaigns-tiny \
   --cpu 2 --settle-ms 1000 --resume
 ```
 
@@ -34,6 +40,8 @@ python3 tools/campaign.py campaigns/external-v1.json \
 ```
 
 `--resume` skips only runs whose raw CSV still matches the SHA-256 recorded in their manifest. Analysis steps are rerun for valid resumed data so derived artifacts can be regenerated without modifying raw evidence.
+
+The tiny-kernel campaign deliberately keeps direct-kernel and integrated-hybrid experiments separate. A direct small-array winner is not automatically promoted to the preferred hybrid leaf. Joint leaf-kernel/cutoff tuning uses training trials, while the selected treatment is evaluated on held-out trials against the best insertion-only cutoff selected from the same training data.
 
 Platform-scoped experiments are explicit. The hardware-counter experiment is Linux-only and is recorded as `skipped-platform` elsewhere; this is not treated as a failed or zero-valued measurement.
 
