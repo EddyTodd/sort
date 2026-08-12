@@ -281,11 +281,13 @@ inline void adaptive_merge_sort(std::vector<Value>& values, Stats& stats,
                                 MergePolicy merge_policy,
                                 MinrunPolicy minrun_policy,
                                 AdaptiveMergeMetrics& metrics) {
-  metrics = {};
+  if constexpr (Count) metrics = {};
   if (values.size() < 2) {
-    if (!values.empty()) {
-      metrics.natural_runs = 1;
-      metrics.effective_runs = 1;
+    if constexpr (Count) {
+      if (!values.empty()) {
+        metrics.natural_runs = 1;
+        metrics.effective_runs = 1;
+      }
     }
     return;
   }
