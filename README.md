@@ -69,6 +69,41 @@ The tuning tool selects a cutoff on training trials and evaluates it on a determ
 
 See [`docs/hybrid-research.md`](docs/hybrid-research.md).
 
+## Tiny-sort kernels and hybrid leaves
+
+The next question is stricter than “what insertion cutoff is best?”: **is insertion sort actually the best leaf algorithm?**
+
+`sort_tiny` directly compares linear insertion, binary insertion, a padded power-of-two bitonic sorting network, and `std::sort` for every small-array treatment up to 32 elements. The bitonic implementation has a data-oblivious comparator topology; the project does not assume that implies branch-free machine code on every compiler/ISA.
+
+```sh
+./build/sort_tiny \
+  --sizes 2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,24,32 \
+  --patterns random,sorted,reversed,few_unique,nearly_sorted \
+  --trials 101 > tiny.csv
+
+python3 tools/analyze_tiny.py tiny.csv \
+  --baseline insertion --bootstrap 5000 --output tiny-summary.csv
+```
+
+`sort_leaf_hybrids` then jointly varies **parent family × leaf kernel × cutoff** for merge, median-of-three quicksort, and introsort:
+
+```sh
+./build/sort_leaf_hybrids \
+  --families merge,quick,intro \
+  --kernels insertion,binary_insertion,bitonic_network \
+  --cutoffs 4,8,12,16,20,24,28,32 \
+  --patterns random,sorted,reversed,few_unique,nearly_sorted,runs \
+  --sizes 64,128,256,512,1024,4096,16384 \
+  --trials 31 > leaf-hybrids.csv
+
+python3 tools/tune_leaf_kernels.py leaf-hybrids.csv \
+  --output leaf-tuning.csv
+```
+
+The joint tuner selects `(kernel, cutoff)` on training trials and evaluates it held-out against the **best insertion-only cutoff selected from the same training observations**. This prevents a sorting network from appearing superior merely because insertion was compared with a poor fixed folklore threshold.
+
+`campaigns/tiny-kernels-v1.json` is the Tier-2 evidence contract for H12-H13. See [`docs/tiny-kernel-research.md`](docs/tiny-kernel-research.md).
+
 ## Experimental algorithm portfolios
 
 The scalar benchmark records a small, deterministic input-feature probe **after all timed competitors have run**, preventing the probe from warming a later timed sort. It records feature-extraction time plus sampled disorder, duplicate density, and key-range width.
@@ -142,7 +177,7 @@ cmake --build build-san -j
 ctest --test-dir build-san --output-on-failure
 ```
 
-The local test suite covers scalar correctness, record correctness/stability/payload integrity, hybrid cutoffs, hardware-counter behavior, allocation accounting, robust statistical reducers, crossover detection, held-out cutoff tuning, claim definitions, and held-out portfolio evaluation.
+The local test suite covers scalar correctness, record correctness/stability/payload integrity, insertion cutoffs, tiny-kernel correctness, hybrid leaf treatments, hardware-counter behavior, allocation accounting, robust statistical reducers, crossover detection, held-out cutoff/kernel tuning, claim definitions, and held-out portfolio evaluation.
 
 ## Reproducibility bundle
 
@@ -172,6 +207,7 @@ Raw trials remain canonical. No automatic outlier deletion is performed.
 - [`docs/theory.md`](docs/theory.md): lower bounds, taxonomy, stability, adaptivity, memory traffic, and hardware-aware interpretation.
 - [`docs/algorithm-catalog.md`](docs/algorithm-catalog.md): implemented mechanisms, variant policy, and external comparison tracks.
 - [`docs/hybrid-research.md`](docs/hybrid-research.md): insertion cutoffs, hybrid hypotheses, held-out tuning, and portfolio research.
+- [`docs/tiny-kernel-research.md`](docs/tiny-kernel-research.md): sorting networks, tiny-array comparisons, H12-H13, and joint leaf-kernel/cutoff tuning.
 - [`docs/methodology.md`](docs/methodology.md): benchmark contract and threats to validity.
 - [`docs/research-protocol.md`](docs/research-protocol.md): hypotheses, experiment tiers, statistical rules, and publication gates.
 - [`docs/records.md`](docs/records.md): record-width and empirical-stability contract.
@@ -179,6 +215,7 @@ Raw trials remain canonical. No automatic outlier deletion is performed.
 - [`docs/statistics.md`](docs/statistics.md): paired inference and crossover interpretation.
 - [`docs/hardware-measurement.md`](docs/hardware-measurement.md): hardware counters, allocation semantics, affinity, and mechanism-claim gates.
 - [`docs/reproducibility.md`](docs/reproducibility.md): canonical-run artifact requirements.
+- [`docs/external-baselines.md`](docs/external-baselines.md): pinned external implementation provenance and comparison contract.
 - [`REFERENCES.md`](REFERENCES.md): foundational, primary, and production-source references.
 
 ## What “complete” means here
