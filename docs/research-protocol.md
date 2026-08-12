@@ -44,6 +44,10 @@ H10. **No universal winner.** Algorithm rankings and crossover points are not in
 
 H11. **Feature-based portfolio.** A cheap input probe may improve held-out performance by selecting among complementary algorithms, but the benefit must exceed feature-extraction cost and must be measured without using benchmark generator labels as runtime oracle information.
 
+H12. **Tiny-kernel crossover.** A data-oblivious bitonic sorting network may outperform insertion sort in some small-array domains, while insertion can retain an advantage on sufficiently ordered inputs because its work adapts to existing order. Any crossover is environment-dependent.
+
+H13. **Leaf-kernel integration effect.** A tiny sorter that wins in isolation may not be the best base case inside merge, quick, or introsort because integration changes code footprint, surrounding control flow, and the distribution of leaf sizes.
+
 These are directional research targets, not conclusions.
 
 ## Default scalar experiment matrix
@@ -69,6 +73,25 @@ Rules:
 5. do not promote a default cutoff until it replicates across the intended compiler/CPU/type domain.
 
 `tools/tune_cutoffs.py` implements a deterministic train/held-out split. If the optimal region varies materially by domain, report a conditional surface rather than hiding that interaction behind one mean.
+
+## Tiny-kernel and leaf-integration protocol
+
+`sort_tiny` directly compares linear insertion, binary insertion, a padded power-of-two bitonic sorting network, and `std::sort` for `n <= 32` on paired deterministic inputs. The bitonic treatment has a fixed data-oblivious comparator topology, but the repository does not assume the compiler emits branch-free machine code.
+
+`sort_leaf_hybrids` then holds the parent algorithm fixed while varying both leaf kernel and cutoff for merge, median-of-three quicksort, and introsort.
+
+Rules:
+
+1. direct tiny-kernel performance and integrated-hybrid performance are separate outcomes;
+2. the bitonic leaf cutoff may not exceed 32;
+3. select `(kernel, cutoff)` using training trials only;
+4. evaluate the selected treatment on held-out trials;
+5. compare against the **best insertion-only cutoff chosen from the same training data**, not one arbitrary folklore constant;
+6. a direct network win does not imply an integrated network win;
+7. branch/cache/code-footprint explanations require direct mechanism measurements rather than wall-time speculation;
+8. a denser crossover follow-up must be frozen as a new campaign artifact after the coarse campaign, not retrofitted into the original contract.
+
+`tools/analyze_tiny.py` reports paired bootstrap uncertainty for the direct experiment. `tools/tune_leaf_kernels.py` implements the joint train/held-out kernel-plus-cutoff selection. See `docs/tiny-kernel-research.md`.
 
 ## Portfolio protocol
 
@@ -108,7 +131,9 @@ Duplicate-heavy workloads are mandatory for stability research because unique-ke
 7. crossover location as a function of `n`, workload, and record width;
 8. allocation calls/requested bytes/peak tracked live bytes in the allocation-only harness;
 9. cycles, instructions, branch misses, and cache-event diagnostics where hardware counters are available;
-10. held-out cutoff performance and held-out portfolio regret/speedup.
+10. held-out cutoff performance and held-out portfolio regret/speedup;
+11. direct tiny-kernel paired speedup with logical comparator/write context;
+12. held-out speedup of jointly selected leaf kernel/cutoff versus the best training-selected insertion-only cutoff.
 
 Energy, memory bandwidth, NUMA, SIMD, parallel speedup, and external-memory I/O are separate experiment tracks because they require materially different measurement contracts.
 
@@ -122,8 +147,8 @@ Energy, memory bandwidth, NUMA, SIMD, parallel speedup, and external-memory I/O 
 - If a run is invalidated by an external event, document the invalidation rule and retain the original artifact separately.
 - Treat multiple sizes/workloads/widths as families of comparisons when making significance claims.
 - Replicate surprising results before interpreting mechanisms.
-- Do not infer cache, branch, bandwidth, or allocation mechanisms from wall time alone.
-- Never tune a cutoff/selector and report its performance on the same observations as if they were independent evidence.
+- Do not infer cache, branch, bandwidth, allocation, or code-footprint mechanisms from wall time alone.
+- Never tune a cutoff, kernel, or selector and report its performance on the same observations as if they were independent evidence.
 
 The bundled inference tools are deliberately dependency-free and auditable. More advanced work may use hierarchical models, mixed effects, robust regression, or multiplicity corrections in a separate environment, but raw schemas and experiment identity must remain intact.
 
@@ -140,7 +165,8 @@ A causal statement requires a direct measurement of the proposed mechanism on th
 - branch/cycle/cache claim → hardware counters;
 - allocation claim → allocation harness;
 - data-movement claim → record move instrumentation or stronger traffic measurement;
-- memory-bandwidth claim → bandwidth-capable counter/tool, not explicit move count alone.
+- memory-bandwidth claim → bandwidth-capable counter/tool, not explicit move count alone;
+- instruction-cache/code-footprint claim → appropriate code-size/instruction-cache evidence, not elapsed time alone.
 
 Counter availability must be explicit. Unavailable counters are not interpreted as zeros.
 
@@ -157,7 +183,7 @@ A benchmark statement can enter the README, a paper, or a portfolio as an empiri
 7. no correctness failures;
 8. at least one repeat run showing the result is not a one-run artifact;
 9. multiplicity handled when formal significance claims span a comparison family;
-10. training/held-out separation for tuned thresholds or selectors;
-11. direct mechanism measurements for causal hardware/allocation claims.
+10. training/held-out separation for tuned thresholds, leaf kernels, or selectors;
+11. direct mechanism measurements for causal hardware/allocation/code-footprint claims.
 
 Cross-machine claims additionally require Tier 3 replication.
