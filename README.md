@@ -1,52 +1,130 @@
 # sort
 
-A C++23 research laboratory for **theoretical and empirical study of sorting algorithms**. The project is designed to answer a more useful question than “what is the Big-O?”: which algorithm wins, by how much, under which input structure, element size, stability requirement, machine, compiler, and cost model—and how confident are we in that conclusion?
+A C++23 laboratory for the **theoretical, empirical, and systems-level study of sorting algorithms**.
 
-The repository treats raw measurements as research artifacts. It deliberately keeps correctness, abstract operation counts, elapsed time, data movement, statistical inference, and theoretical guarantees separate rather than collapsing them into a single leaderboard.
+The project does not ask only which algorithm has the best asymptotic bound. It asks which implementation wins, by how much, under which input structure, element width, stability requirement, compiler, standard library, and microarchitecture—and what mechanism plausibly explains that result.
+
+Raw measurements are first-class research artifacts. Correctness, asymptotic theory, operation counts, elapsed time, record movement, allocation behavior, hardware counters, statistical uncertainty, and tuning decisions are kept separate rather than collapsed into a single leaderboard.
 
 ## Research surface
 
-### Scalar experiment
+### Scalar algorithms
 
-`sort_lab` benchmarks 12 scalar implementations/families on signed 64-bit integers:
+`sort_lab` currently exposes **23 algorithms and scientifically material variants** over signed 64-bit integers:
 
-- insertion, selection, bubble, and Ciura-gap Shell sort;
-- heapsort and stable mergesort;
-- two-way Hoare quicksort and duplicate-aware three-way quicksort;
-- custom introsort with heap fallback and insertion cutoff;
-- stable byte-wise LSD radix sort;
-- `std::sort` and `std::stable_sort` as production-library baselines.
+- insertion: linear insertion and binary insertion;
+- exchange/selection: selection, bubble, and comb sort;
+- Shell: Ciura-gap and Pratt-gap variants;
+- heap: project heapsort and a standard-library heap baseline;
+- merge: top-down, bottom-up, natural/run-adaptive, and merge+insertion;
+- quicksort: two-way Hoare, duplicate-aware three-way, median-of-three, dual-pivot, and quicksort+insertion;
+- hybrid: introsort plus parameterized insertion-cutoff families;
+- distribution: stable 8-bit LSD radix and an 11-bit-digit LSD radix variant;
+- library: `std::sort` and `std::stable_sort`.
 
-The scalar harness now exposes 15 deterministic workload families: random, sorted, reversed, few-unique, binary, all-equal, nearly-sorted, organ-pipe, sawtooth, ascending runs, descending runs, rotated sorted data, alternating extremes, staggered periodic keys, and plateau data.
+Run `sort_lab --list-algorithms` for machine-readable metadata covering family, stability, in-place status, adaptivity, asymptotic bounds, and auxiliary space. [`docs/algorithm-catalog.md`](docs/algorithm-catalog.md) explains the coverage policy and external state-of-the-art comparison tracks.
 
-### Record experiment
+### Controlled workloads
 
-`sort_records` studies a different problem: **sorting key/payload records when moving an element is materially more expensive than comparing its key**.
+The scalar and record laboratories expose 15 deterministic workload families: random, sorted, reversed, few-unique, binary, all-equal, nearly-sorted, organ-pipe, sawtooth, ascending runs, descending runs, rotated sorted data, alternating extremes, staggered periodic keys, and plateau data.
 
-Nine representative algorithms are instantiated over records containing a signed 64-bit key, original ordinal, and payload. Supported payload sizes are 0, 1, 3, 7, 15, and 31 64-bit words; the executable reports the actual `sizeof(record)` for each build.
+These are controlled probes, not claims about the frequency of real-world workloads. Their purpose is to expose adaptivity, duplicate handling, partition behavior, run exploitation, and adversarial sensitivity.
 
-Every output record carries its original ordinal. This lets the harness empirically verify:
+### Record width and stability
 
-- sorted key order;
+`sort_records` benchmarks nine representative algorithms over fixed-size key/payload records. Payload widths span 0, 1, 3, 7, 15, and 31 64-bit words; the executable records the actual ABI `sizeof(record)`.
+
+Every record retains its original ordinal and deterministic payload, allowing the harness to verify:
+
+- nondecreasing key order;
 - exact record/payload preservation;
-- whether equal-key records retained their original relative order;
+- empirical stability on equal keys;
 - stability guarantees for algorithms that claim them.
 
-The untimed instrumentation pass also reports explicit whole-record moves and `explicit_bytes_moved = moves × sizeof(record)` for project-controlled implementations. These are **algorithmic data-movement observables**, not hardware memory-traffic counters. Library-internal moves are left unreported rather than fabricated.
+Project-controlled algorithms also expose explicit record moves and `explicit_bytes_moved`. These are algorithmic observables, not estimates of cache or DRAM traffic.
 
-## Experimental design
+## Hybrid and cutoff research
 
-Both executables use the same core discipline:
+A central research question is whether a practical sorter should combine mechanisms rather than use one algorithm everywhere.
 
-- counter-free timed implementations and separate instrumented passes;
-- independent deterministic input per trial;
-- identical input for every algorithm within a paired trial;
-- deterministic randomized execution order;
-- portable seed derivation and input fingerprints;
-- correctness verification before any row is accepted;
-- raw CSV output rather than in-benchmark ranking.
+`sort_cutoffs` treats the insertion-sort base-case threshold as an experimental variable for:
 
-The record experiment additionally keeps the same key sequence across payload widths for a given `(pattern, n, trial)`, enabling controlled element-width studies.
+- merge sort + insertion leaves;
+- median-of-three quicksort + insertion leaves;
+- introsort + insertion leaves.
+
+```sh
+./build/sort_cutoffs \
+  --cutoffs 1,4,8,12,16,20,24,32,48,64,96,128 \
+  --sizes 8,12,16,24,32,48,64,96,128,192,256,512,1024,2048,4096,8192 \
+  --patterns random,sorted,few_unique,nearly_sorted,runs \
+  --trials 51 > cutoffs.csv
+
+python3 tools/tune_cutoffs.py cutoffs.csv --output cutoff-summary.csv
+```
+
+The tuning tool selects a cutoff on training trials and evaluates it on a deterministic held-out split. The repository does **not** assume one folklore threshold is universally optimal.
+
+`tools/claim_matrix.py` evaluates preregistered paired claims including insertion-vs-merge crossover, linear-vs-binary insertion, hybrid-vs-pure merge/quicksort, two-way-vs-three-way quicksort, radix digit width, and run-adaptive-vs-fixed merge.
+
+See [`docs/hybrid-research.md`](docs/hybrid-research.md).
+
+## Experimental algorithm portfolios
+
+The scalar benchmark records a small, deterministic input-feature probe **after all timed competitors have run**, preventing the probe from warming a later timed sort. It records feature-extraction time plus sampled disorder, duplicate density, and key-range width.
+
+`tools/portfolio.py` uses only observable features and `n`—never the benchmark's hidden workload label—to fit per-algorithm cost models on training trials and evaluate the selector on held-out trials. Portfolio cost includes the measured feature-probe overhead.
+
+```sh
+./build/sort_lab \
+  --algorithms intro,natural_merge,quick_3way,radix_lsd_11,std_sort \
+  --patterns random,sorted,few_unique,nearly_sorted,runs,plateau \
+  --sizes 16,32,64,128,256,512,1024,4096,16384 \
+  --trials 60 > portfolio.csv
+
+python3 tools/portfolio.py portfolio.csv \
+  --algorithms intro,natural_merge,quick_3way,radix_lsd_11,std_sort \
+  --output portfolio-summary.csv
+```
+
+The output compares the held-out selector against the best single training-selected algorithm and the unattainable held-out per-instance oracle. This provides a disciplined way to ask whether a portfolio can beat a fixed algorithm without leaking generator labels into runtime decisions.
+
+## Hardware counters
+
+`sort_perf` uses Linux `perf_event_open` for:
+
+- cycles;
+- retired instructions;
+- branch instructions and branch misses;
+- cache references and cache misses.
+
+Wall time is collected in a counter-free pass. Each hardware event is then measured in its own **fresh sort pass over the identical input**, avoiding the requirement that all six events fit simultaneously in the CPU's programmable-counter budget.
+
+```sh
+./build/sort_perf --cpu 2 \
+  --algorithms intro,merge_insertion_24,dual_pivot,radix_lsd_11,std_sort \
+  --patterns random,few_unique,nearly_sorted \
+  --sizes 1024,16384,262144 --trials 31 > perf.csv
+
+python3 tools/analyze_perf.py perf.csv --output perf-summary.csv
+```
+
+The harness fails closed when counters are unavailable or unusable. Unsupported/denied events are marked unavailable; zeros are never silently presented as measurements. On non-Linux systems the rest of the repository remains usable.
+
+## Allocation behavior
+
+`sort_alloc` is a separate allocation-only executable that tracks ordinary C++ `new`/`delete` around the sort call. It reports allocation calls, requested bytes, peak live requested bytes, largest allocation, and tracked bytes still live when measurement ends.
+
+```sh
+./build/sort_alloc \
+  --algorithms heap,merge,natural_merge,radix_lsd,std_sort,std_stable_sort \
+  --patterns random,nearly_sorted --sizes 1024,16384,262144 \
+  --trials 11 > alloc.csv
+
+python3 tools/analyze_alloc.py alloc.csv --output alloc-summary.csv
+```
+
+The allocation harness is intentionally separate from canonical timing because replacing the allocator changes the measured program.
 
 ## Build and validate
 
@@ -56,90 +134,58 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 
-No hosted GitHub Actions are required. The local CTest suite covers scalar correctness, record correctness/stability/payload integrity, smoke experiments, scalar analysis, record analysis, and crossover analysis.
-
-## Scalar benchmark
+Optional sanitizer validation:
 
 ```sh
-./build/sort_lab --trials 31 --warmups 2 \
-  --sizes 64,1024,16384,262144 > scalar.csv
+cmake -S . -B build-san -DSORTLAB_ENABLE_SANITIZERS=ON
+cmake --build build-san -j
+ctest --test-dir build-san --output-on-failure
 ```
 
-Target difficult structures explicitly:
+The local test suite covers scalar correctness, record correctness/stability/payload integrity, hybrid cutoffs, hardware-counter behavior, allocation accounting, robust statistical reducers, crossover detection, held-out cutoff tuning, claim definitions, and held-out portfolio evaluation.
+
+## Reproducibility bundle
+
+`tools/run_experiment.py` wraps any benchmark executable and captures the raw CSV plus a manifest containing raw-data SHA-256, binary SHA-256, command line, Git state, host metadata, requested affinity, and available Linux/macOS control state.
 
 ```sh
-./build/sort_lab \
-  --algorithms quick_hoare,quick_3way,intro,std_sort \
-  --patterns binary,organ_pipe,rotated,alternating_extremes,plateau \
-  --sizes 128,1024,8192,65536 --trials 51 > adversarial.csv
+python3 tools/run_experiment.py --cpu 2 --settle-ms 1000 \
+  ./build/sort_lab results/canonical-001 -- \
+  --trials 51 --warmups 2 --sizes 64,1024,16384,262144
 ```
 
-## Record-width and stability benchmark
-
-Inspect compiled widths and algorithms:
-
-```sh
-./build/sort_records --list-payloads
-./build/sort_records --list-algorithms
-```
-
-Run a payload-width campaign:
-
-```sh
-./build/sort_records \
-  --payload-words 0,1,3,7,15,31 \
-  --algorithms heap,merge,quick_3way,intro,radix_lsd,std_sort,std_stable_sort \
-  --patterns random,few_unique,all_equal,nearly_sorted,plateau \
-  --sizes 64,1024,16384,262144 --trials 31 > records.csv
-```
-
-`tools/run_experiment.py` can wrap either executable to capture raw CSV, SHA-256, command line, compiler/binary metadata, host metadata, Git commit, and working-tree state.
+The wrapper records host state; it does not silently change governors, turbo, thermal policy, or OS security settings.
 
 ## Statistical analysis
 
-Scalar results:
+Scalar and record reducers report robust descriptive statistics, bootstrap uncertainty, paired speedup, paired win rate, and exact paired sign tests. `tools/crossovers.py` identifies candidate adjacent size brackets where paired speedup crosses 1.0 and distinguishes exploratory crossings from brackets whose endpoint intervals lie on opposite sides of parity.
 
 ```sh
-python3 tools/analyze.py scalar.csv --baseline std_sort \
-  --bootstrap 5000 --output scalar-summary.csv
+python3 tools/analyze.py scalar.csv --baseline std_sort --bootstrap 5000 --output summary.csv
+python3 tools/crossovers.py summary.csv --output crossovers.csv
 ```
 
-Record results:
-
-```sh
-python3 tools/analyze_records.py records.csv --baseline std_sort \
-  --bootstrap 5000 --output record-summary.csv
-```
-
-The reducers report robust descriptive statistics and paired baseline comparisons. Milestone 3 adds **paired win rate and an exact two-sided paired sign test** alongside paired median speedup and bootstrap intervals. Statistical detectability is not treated as practical importance.
-
-Candidate crossover brackets can be extracted from either summary schema:
-
-```sh
-python3 tools/crossovers.py scalar-summary.csv --output scalar-crossovers.csv
-python3 tools/crossovers.py record-summary.csv --output record-crossovers.csv
-```
-
-The tool finds adjacent measured sizes where median paired speedup crosses 1.0, estimates the crossing on a log-size/log-speedup scale, and labels the bracket `decisive` only when the adjacent confidence intervals lie on opposite sides of 1.0. Crossover estimates remain exploratory until the bracket is sampled more densely.
+Raw trials remain canonical. No automatic outlier deletion is performed.
 
 ## Research documentation
 
-- [`docs/theory.md`](docs/theory.md): taxonomy, complexity model, lower bounds, stability, adaptivity, memory traffic, and hardware-aware interpretation.
-- [`docs/methodology.md`](docs/methodology.md): timing, pairing, instrumentation, record experiments, and threats to validity.
-- [`docs/research-protocol.md`](docs/research-protocol.md): hypotheses, experiment tiers, statistical rules, crossover policy, and publication gates.
-- [`docs/records.md`](docs/records.md): record-width experiment, empirical stability contract, and data-movement semantics.
-- [`docs/adversarial-workloads.md`](docs/adversarial-workloads.md): controlled workload taxonomy and what each pattern probes.
-- [`docs/statistics.md`](docs/statistics.md): paired inference, sign tests, win rates, crossover detection, and multiplicity cautions.
-- [`docs/reproducibility.md`](docs/reproducibility.md): canonical-run requirements and artifact layout.
-- [`REFERENCES.md`](REFERENCES.md): primary and foundational literature.
+- [`docs/theory.md`](docs/theory.md): lower bounds, taxonomy, stability, adaptivity, memory traffic, and hardware-aware interpretation.
+- [`docs/algorithm-catalog.md`](docs/algorithm-catalog.md): implemented mechanisms, variant policy, and external comparison tracks.
+- [`docs/hybrid-research.md`](docs/hybrid-research.md): insertion cutoffs, hybrid hypotheses, held-out tuning, and portfolio research.
+- [`docs/methodology.md`](docs/methodology.md): benchmark contract and threats to validity.
+- [`docs/research-protocol.md`](docs/research-protocol.md): hypotheses, experiment tiers, statistical rules, and publication gates.
+- [`docs/records.md`](docs/records.md): record-width and empirical-stability contract.
+- [`docs/adversarial-workloads.md`](docs/adversarial-workloads.md): workload taxonomy.
+- [`docs/statistics.md`](docs/statistics.md): paired inference and crossover interpretation.
+- [`docs/hardware-measurement.md`](docs/hardware-measurement.md): hardware counters, allocation semantics, affinity, and mechanism-claim gates.
+- [`docs/reproducibility.md`](docs/reproducibility.md): canonical-run artifact requirements.
+- [`REFERENCES.md`](REFERENCES.md): foundational, primary, and production-source references.
 
-## Scope and limitations
+## What “complete” means here
 
-The repository now studies both scalar integer sorting and fixed-size key/payload records, but it still does **not** claim to characterize strings, variable-size objects, indirect/index sorting, external-memory sorting, NUMA, GPUs, parallel sorting, SIMD specialist implementations, allocator behavior, hardware cache/branch counters, or energy.
+The core repository is a complete **single-threaded, in-memory sorting research laboratory**, not an assertion that every known sorter should be reimplemented locally. Architecture-specific SIMD sorters, parallel algorithms, GPUs, external-memory sorting, NUMA studies, variable-size strings/objects, and third-party state-of-the-art implementations are separate experiment models. They should enter through versioned/provenance-preserving comparison tracks rather than being mixed into the portable core without controlling their different contracts.
 
-`explicit_bytes_moved` is not DRAM traffic, cache traffic, or a measured bandwidth quantity. Hardware-counter and allocation/peak-memory work remains a separate milestone because those measurements are platform-specific and should not be disguised as portable metrics.
-
-No benchmark table belongs in this README until it satisfies the publication gate and is backed by raw reproducibility artifacts.
+No performance table belongs in this README until it satisfies the publication gate with raw data, a manifest, uncertainty, and replication.
 
 ## License
 

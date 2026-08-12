@@ -7,10 +7,11 @@ authors:
     given-names: Eddy
 repository-code: "https://github.com/EddyTodd/sort"
 license: MIT
-version: 0.3.0
+version: 0.4.0
 keywords:
   - sorting algorithms
   - benchmarking
-  - algorithms
+  - hybrid algorithms
+  - algorithm engineering
   - reproducibility
   - C++
