@@ -35,6 +35,28 @@ The small-set track is intentionally separate from the 23 top-level scalar algor
 
 The bitonic network is not labelled optimal. Optimal-size networks, SIMD/register sorting networks, conditional-move-specialized code, and AlphaDev-derived sequences remain distinct future comparison treatments. See `docs/tiny-kernel-research.md`.
 
+## Adaptive stable merge-policy track
+
+`sort_merge_policies` studies stable natural mergesort as a factorial design instead of treating “TimSort” or “Powersort” as indivisible labels.
+
+Merge scheduling treatments:
+
+- adjacent pairwise rounds;
+- the repaired TimSort run-stack policy;
+- Powersort's node-power schedule.
+
+Minrun treatments:
+
+- no artificial extension;
+- classic fixed TimSort-style minrun;
+- a balanced variable minrun sequence matching the current CPython design principle.
+
+All nine combinations use the same run detector, stable binary extension, and stable two-run merge kernel. This is deliberate: it isolates merge scheduling and run sizing from galloping and other merge-kernel optimizations.
+
+The track also includes five controlled run-shape families and an exact optimal alphabetic merge-cost model for up to 64 runs. See `docs/adaptive-merge-research.md`.
+
+These implementations are not inserted into the frozen 23-algorithm `canonical-v1` campaign retroactively. They have a separate `merge-policies-v1` Tier-2 contract; integration into a later unified portfolio requires a new versioned campaign.
+
 ## Implemented record algorithms
 
 The record-width laboratory intentionally uses a smaller representative set: insertion, heap, stable merge, two-way quicksort, three-way quicksort, introsort, stable radix, `std::sort`, and `std::stable_sort`. The goal is factorial control over payload width and stability, not duplicating every scalar variant for every record type.
@@ -52,7 +74,7 @@ These are measured in `sort_external` beside paired internal/library controls on
 
 The following remain part of the research universe even when they are not vendored into the core executable:
 
-- Timsort and Powersort/Peeksort: stable run-adaptive merging and merge-policy research;
+- Peeksort and multiway Powersort as additional stable merge-policy research;
 - BlockQuicksort: branch-misprediction-aware partitioning;
 - QuickXsort / QuickMergesort: theoretically analyzed combinations of partitioning with another sorting method;
 - VQSort: vectorized, architecture-portable quicksort;
@@ -75,6 +97,7 @@ A variant gets its own algorithm name when it changes a scientifically material 
 - insertion/base-case cutoff;
 - leaf algorithm;
 - merge order/run policy;
+- minrun/run-extension policy;
 - stability or in-place guarantee;
 - branchless/vectorized partitioning;
 - parallelism or memory strategy.
@@ -84,3 +107,5 @@ Continuous/tunable parameters should normally live in a tuning experiment rather
 ## Completion criterion
 
 The core catalog is considered representative when every major mechanism above has at least one controlled implementation or an explicitly versioned external-baseline track. The research objective is then to characterize domains of superiority and crossover regions—not to declare one universal winner.
+
+Known incomplete comparison tracks are listed explicitly in `TECHNICAL_DEBT.md`.

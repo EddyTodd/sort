@@ -104,6 +104,41 @@ The joint tuner selects `(kernel, cutoff)` on training trials and evaluates it h
 
 `campaigns/tiny-kernels-v1.json` is the Tier-2 evidence contract for H12-H13. See [`docs/tiny-kernel-research.md`](docs/tiny-kernel-research.md).
 
+## Adaptive stable merge scheduling
+
+A stable adaptive mergesort is itself a composition of decisions. `sort_merge_policies` isolates two of them as independent experimental factors:
+
+- **merge schedule:** adjacent pairwise rounds, repaired TimSort stack policy, Powersort;
+- **run extension:** none, classic fixed TimSort-style minrun, balanced variable minrun.
+
+All **9 combinations** share the same monotone-run detector, stable binary extension, and stable two-run merge kernel. That prevents a faster galloping merge or a different temporary-buffer strategy from being mistaken for a better merge schedule.
+
+The dedicated workload suite reuses ordinary inputs and adds controlled run geometries such as equal runs, alternating long/short runs, Fibonacci-like lengths, power-skewed lengths, and alternating run directions.
+
+```sh
+./build/sort_merge_policies \
+  --policies pairwise,timsort_stack,powersort \
+  --minruns none,classic,balanced \
+  --patterns random,sorted,nearly_sorted,run_long_short,run_power_skew,run_fibonacci \
+  --sizes 32,64,128,315,1024,4096,16384,65536 \
+  --trials 51 > merge-policies.csv
+
+python3 tools/analyze_merge_policies.py merge-policies.csv \
+  --baseline-policy powersort --baseline-minrun balanced \
+  --bootstrap 5000 --output merge-policy-summary.csv
+```
+
+The instrumented path reports raw/effective run counts, comparisons, writes, weighted scheduled merge cost, pending-run depth, and run entropy. These structural metrics are **not** substituted for elapsed time.
+
+A separate theory tool compares the scheduling policies with the exact optimal alphabetic merge cost for up to 64 runs:
+
+```sh
+python3 tools/merge_policy_model.py \
+  --suite models/merge-policy-sequences-v1.json
+```
+
+This distinguishes “better merge tree” from “faster implementation.” `campaigns/merge-policies-v1.json` is the Tier-2 evidence contract for H14-H15. See [`docs/adaptive-merge-research.md`](docs/adaptive-merge-research.md).
+
 ## Experimental algorithm portfolios
 
 The scalar benchmark records a small, deterministic input-feature probe **after all timed competitors have run**, preventing the probe from warming a later timed sort. It records feature-extraction time plus sampled disorder, duplicate density, and key-range width.
@@ -123,6 +158,8 @@ python3 tools/portfolio.py portfolio.csv \
 ```
 
 The output compares the held-out selector against the best single training-selected algorithm and the unattainable held-out per-instance oracle. This provides a disciplined way to ask whether a portfolio can beat a fixed algorithm without leaking generator labels into runtime decisions.
+
+Dedicated research tracks are not silently folded into the selector. A future unified portfolio that includes adaptive-merge, tiny-kernel, and external treatments will use a new compatible schema and frozen campaign after those candidates have independent evidence.
 
 ## Hardware counters
 
@@ -177,7 +214,7 @@ cmake --build build-san -j
 ctest --test-dir build-san --output-on-failure
 ```
 
-The local test suite covers scalar correctness, record correctness/stability/payload integrity, insertion cutoffs, tiny-kernel correctness, hybrid leaf treatments, hardware-counter behavior, allocation accounting, robust statistical reducers, crossover detection, held-out cutoff/kernel tuning, claim definitions, and held-out portfolio evaluation.
+The local test suite covers scalar correctness, record correctness/stability/payload integrity, insertion cutoffs, tiny-kernel correctness, hybrid leaf treatments, adaptive merge scheduling/minrun treatments, hardware-counter behavior, allocation accounting, robust statistical reducers, exact merge-policy models, crossover detection, held-out cutoff/kernel tuning, claim definitions, and held-out portfolio evaluation.
 
 ## Reproducibility bundle
 
@@ -208,6 +245,7 @@ Raw trials remain canonical. No automatic outlier deletion is performed.
 - [`docs/algorithm-catalog.md`](docs/algorithm-catalog.md): implemented mechanisms, variant policy, and external comparison tracks.
 - [`docs/hybrid-research.md`](docs/hybrid-research.md): insertion cutoffs, hybrid hypotheses, held-out tuning, and portfolio research.
 - [`docs/tiny-kernel-research.md`](docs/tiny-kernel-research.md): sorting networks, tiny-array comparisons, H12-H13, and joint leaf-kernel/cutoff tuning.
+- [`docs/adaptive-merge-research.md`](docs/adaptive-merge-research.md): run detection, minrun policies, TimSort/Powersort scheduling, exact merge-cost models, H14-H15, and evidence boundaries.
 - [`docs/methodology.md`](docs/methodology.md): benchmark contract and threats to validity.
 - [`docs/research-protocol.md`](docs/research-protocol.md): hypotheses, experiment tiers, statistical rules, and publication gates.
 - [`docs/records.md`](docs/records.md): record-width and empirical-stability contract.
@@ -216,11 +254,12 @@ Raw trials remain canonical. No automatic outlier deletion is performed.
 - [`docs/hardware-measurement.md`](docs/hardware-measurement.md): hardware counters, allocation semantics, affinity, and mechanism-claim gates.
 - [`docs/reproducibility.md`](docs/reproducibility.md): canonical-run artifact requirements.
 - [`docs/external-baselines.md`](docs/external-baselines.md): pinned external implementation provenance and comparison contract.
+- [`TECHNICAL_DEBT.md`](TECHNICAL_DEBT.md): explicit known limitations, impact, and remediation paths.
 - [`REFERENCES.md`](REFERENCES.md): foundational, primary, and production-source references.
 
 ## What “complete” means here
 
-The core repository is a complete **single-threaded, in-memory sorting research laboratory**, not an assertion that every known sorter should be reimplemented locally. Architecture-specific SIMD sorters, parallel algorithms, GPUs, external-memory sorting, NUMA studies, variable-size strings/objects, and third-party state-of-the-art implementations are separate experiment models. They should enter through versioned/provenance-preserving comparison tracks rather than being mixed into the portable core without controlling their different contracts.
+The portable core is a mature **single-threaded, in-memory sorting research laboratory**, not an assertion that every known sorter or machine model has already been exhausted. Architecture-specific SIMD sorters, parallel algorithms, GPUs, external-memory sorting, NUMA studies, variable-size strings/objects, additional production merge kernels, and more third-party state-of-the-art implementations remain separate experiment models. Their current status is explicit in [`TECHNICAL_DEBT.md`](TECHNICAL_DEBT.md).
 
 No performance table belongs in this README until it satisfies the publication gate with raw data, a manifest, uncertainty, and replication.
 
