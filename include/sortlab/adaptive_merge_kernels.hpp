@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace sortlab {
@@ -84,6 +85,82 @@ inline std::size_t counted_upper_bound(std::size_t lo, std::size_t hi, Value key
   return lo;
 }
 
+template <bool Count, class Accessor>
+inline std::size_t gallop_lower_from_front(std::size_t lo, std::size_t hi, Value key,
+                                           Accessor&& at, Stats& stats) {
+  if (lo >= hi || !lessv<Count>(at(lo), key, stats)) return lo;
+  std::size_t previous = lo;
+  std::size_t offset = 1;
+  while (lo + offset < hi && lessv<Count>(at(lo + offset), key, stats)) {
+    previous = lo + offset;
+    if (offset > (hi - lo) / 2) {
+      offset = hi - lo;
+      break;
+    }
+    offset <<= 1U;
+  }
+  const std::size_t upper = std::min(hi, lo + offset + 1);
+  return counted_lower_bound<Count>(previous + 1, upper, key,
+                                    std::forward<Accessor>(at), stats);
+}
+
+template <bool Count, class Accessor>
+inline std::size_t gallop_upper_from_front(std::size_t lo, std::size_t hi, Value key,
+                                           Accessor&& at, Stats& stats) {
+  if (lo >= hi || lessv<Count>(key, at(lo), stats)) return lo;
+  std::size_t previous = lo;
+  std::size_t offset = 1;
+  while (lo + offset < hi && !lessv<Count>(key, at(lo + offset), stats)) {
+    previous = lo + offset;
+    if (offset > (hi - lo) / 2) {
+      offset = hi - lo;
+      break;
+    }
+    offset <<= 1U;
+  }
+  const std::size_t upper = std::min(hi, lo + offset + 1);
+  return counted_upper_bound<Count>(previous + 1, upper, key,
+                                    std::forward<Accessor>(at), stats);
+}
+
+template <bool Count, class Accessor>
+inline std::size_t gallop_lower_from_back(std::size_t lo, std::size_t hi, Value key,
+                                          Accessor&& at, Stats& stats) {
+  if (lo >= hi || lessv<Count>(at(hi - 1), key, stats)) return hi;
+  std::size_t upper = hi;
+  std::size_t offset = 1;
+  while (offset < hi - lo) {
+    const std::size_t probe = hi - 1 - offset;
+    if (lessv<Count>(at(probe), key, stats)) {
+      return counted_lower_bound<Count>(probe + 1, upper, key,
+                                        std::forward<Accessor>(at), stats);
+    }
+    upper = probe + 1;
+    if (offset > (hi - lo) / 2) break;
+    offset <<= 1U;
+  }
+  return counted_lower_bound<Count>(lo, upper, key, std::forward<Accessor>(at), stats);
+}
+
+template <bool Count, class Accessor>
+inline std::size_t gallop_upper_from_back(std::size_t lo, std::size_t hi, Value key,
+                                          Accessor&& at, Stats& stats) {
+  if (lo >= hi || !lessv<Count>(key, at(hi - 1), stats)) return hi;
+  std::size_t upper = hi;
+  std::size_t offset = 1;
+  while (offset < hi - lo) {
+    const std::size_t probe = hi - 1 - offset;
+    if (!lessv<Count>(key, at(probe), stats)) {
+      return counted_upper_bound<Count>(probe + 1, upper, key,
+                                        std::forward<Accessor>(at), stats);
+    }
+    upper = probe + 1;
+    if (offset > (hi - lo) / 2) break;
+    offset <<= 1U;
+  }
+  return counted_upper_bound<Count>(lo, upper, key, std::forward<Accessor>(at), stats);
+}
+
 template <bool Count>
 inline void note_gallop(MergeKernelMetrics& metrics, std::size_t elements) {
   if constexpr (Count) {
@@ -131,7 +208,7 @@ inline void merge_full_buffer(std::vector<Value>& values,
 
     if (gallop && i < left_end && j < right_end &&
         left_streak >= spec.gallop_threshold) {
-      const std::size_t end = counted_upper_bound<Count>(
+      const std::size_t end = gallop_upper_from_front<Count>(
           i, left_end, temp[j], [&](std::size_t x) { return temp[x]; }, stats);
       const std::size_t count = end - i;
       note_gallop<Count>(metrics, count);
@@ -139,7 +216,7 @@ inline void merge_full_buffer(std::vector<Value>& values,
       left_streak = right_streak = 0;
     } else if (gallop && i < left_end && j < right_end &&
                right_streak >= spec.gallop_threshold) {
-      const std::size_t end = counted_lower_bound<Count>(
+      const std::size_t end = gallop_lower_from_front<Count>(
           j, right_end, temp[i], [&](std::size_t x) { return temp[x]; }, stats);
       const std::size_t count = end - j;
       note_gallop<Count>(metrics, count);
@@ -183,7 +260,7 @@ inline void merge_smaller_left(std::vector<Value>& values,
       right_streak = 0;
     }
     if (gallop && i < left.len && j < hi && left_streak >= spec.gallop_threshold) {
-      const std::size_t end = counted_upper_bound<Count>(
+      const std::size_t end = gallop_upper_from_front<Count>(
           i, left.len, values[j], [&](std::size_t x) { return temp[x]; }, stats);
       const std::size_t count = end - i;
       note_gallop<Count>(metrics, count);
@@ -191,7 +268,7 @@ inline void merge_smaller_left(std::vector<Value>& values,
       left_streak = right_streak = 0;
     } else if (gallop && i < left.len && j < hi &&
                right_streak >= spec.gallop_threshold) {
-      const std::size_t end = counted_lower_bound<Count>(
+      const std::size_t end = gallop_lower_from_front<Count>(
           j, hi, temp[i], [&](std::size_t x) { return values[x]; }, stats);
       const std::size_t count = end - j;
       note_gallop<Count>(metrics, count);
@@ -233,7 +310,7 @@ inline void merge_smaller_right(std::vector<Value>& values,
       left_streak = 0;
     }
     if (gallop && i > left.base && j > 0 && left_streak >= spec.gallop_threshold) {
-      const std::size_t begin = counted_upper_bound<Count>(
+      const std::size_t begin = gallop_upper_from_back<Count>(
           left.base, i, temp[j - 1], [&](std::size_t x) { return values[x]; }, stats);
       const std::size_t count = i - begin;
       note_gallop<Count>(metrics, count);
@@ -241,7 +318,7 @@ inline void merge_smaller_right(std::vector<Value>& values,
       left_streak = right_streak = 0;
     } else if (gallop && i > left.base && j > 0 &&
                right_streak >= spec.gallop_threshold) {
-      const std::size_t begin = counted_lower_bound<Count>(
+      const std::size_t begin = gallop_lower_from_back<Count>(
           0, j, values[i - 1], [&](std::size_t x) { return temp[x]; }, stats);
       const std::size_t count = j - begin;
       note_gallop<Count>(metrics, count);
