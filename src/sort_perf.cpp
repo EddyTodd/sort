@@ -37,7 +37,9 @@ std::vector<std::string> split(std::string_view text) {
 
 std::vector<std::size_t> numbers(std::string_view text) {
   std::vector<std::size_t> result;
-  for (const auto& token : split(text)) result.push_back(static_cast<std::size_t>(std::stoull(token)));
+  for (const auto& token : split(text)) {
+    result.push_back(static_cast<std::size_t>(std::stoull(token)));
+  }
   return result;
 }
 
@@ -72,6 +74,28 @@ void pin_cpu(int cpu) {
 #endif
 }
 
+struct CounterSample {
+  bool available = false;
+  std::uint64_t value = 0;
+  bool verified = true;
+};
+
+CounterSample measure_event(PerfEvent& event, const Algorithm& algorithm,
+                            const std::vector<Value>& input) {
+  CounterSample sample;
+  sample.available = event.available();
+  if (!sample.available) return sample;
+
+  auto copy = input;
+  Stats unused;
+  event.start();
+  algorithm.timed(copy, unused);
+  sample.value = event.stop();
+  sample.verified = verify(input, copy);
+  if (sample.value == 0) sample.available = false;
+  return sample;
+}
+
 int self_test() {
   const auto input = make_data("random", 257, trial_seed(1, "random", 257, 0));
   for (const std::string name : {"insertion", "merge_insertion_24", "dual_pivot",
@@ -82,9 +106,11 @@ int self_test() {
     all_algorithms()[index].timed(copy, stats);
     if (!verify(input, copy)) return 1;
   }
-  PerfCounters counters;
-  std::cout << "PASS: perf harness; counters_available=" << (counters.available() ? 1 : 0) << '\n';
-  return 0;
+  PerfEvent cycles(PerfMetric::cycles);
+  const auto sample = measure_event(
+      cycles, all_algorithms()[select_algorithms({"std_sort"}).front()], input);
+  std::cout << "PASS: perf harness; cycles_available=" << (sample.available ? 1 : 0) << '\n';
+  return sample.verified ? 0 : 1;
 }
 
 }  // namespace
@@ -124,14 +150,17 @@ int main(int argc, char** argv) {
 
     const auto selected = select_algorithms(names);
     const auto& table = all_algorithms();
-    PerfCounters counters;
-    if (!counters.available()) {
-      std::cerr << "hardware counters unavailable: " << counters.reason() << '\n';
-    }
+    PerfEvent cycles(PerfMetric::cycles);
+    PerfEvent instructions(PerfMetric::instructions);
+    PerfEvent branches(PerfMetric::branches);
+    PerfEvent branch_misses(PerfMetric::branch_misses);
+    PerfEvent cache_references(PerfMetric::cache_references);
+    PerfEvent cache_misses(PerfMetric::cache_misses);
 
     std::cout << "schema_version,algorithm,pattern,n,trial,trial_seed,input_hash,"
-                 "execution_order,ns,perf_available,cycles,instructions,branches,branch_misses,"
-                 "cache_references,cache_misses,verified\n";
+                 "execution_order,ns,cycles_available,cycles,instructions_available,instructions,"
+                 "branches_available,branches,branch_misses_available,branch_misses,"
+                 "cache_references_available,cache_references,cache_misses_available,cache_misses,verified\n";
 
     for (const std::size_t n : sizes) {
       for (const auto& pattern : patterns) {
@@ -144,22 +173,34 @@ int main(int argc, char** argv) {
           std::size_t execution_order = 0;
 
           for (const std::size_t index : order) {
-            auto copy = input;
-            Stats stats;
-            counters.start();
+            auto timed_copy = input;
+            Stats unused;
             const auto start = std::chrono::steady_clock::now();
-            table[index].timed(copy, stats);
+            table[index].timed(timed_copy, unused);
             const auto stop = std::chrono::steady_clock::now();
-            const auto perf = counters.stop();
-            const bool verified = verify(input, copy);
-            std::cout << 1 << ',' << table[index].name << ',' << pattern << ',' << n << ','
+            const bool timed_verified = verify(input, timed_copy);
+
+            const auto cycle_sample = measure_event(cycles, table[index], input);
+            const auto instruction_sample = measure_event(instructions, table[index], input);
+            const auto branch_sample = measure_event(branches, table[index], input);
+            const auto branch_miss_sample = measure_event(branch_misses, table[index], input);
+            const auto cache_reference_sample = measure_event(cache_references, table[index], input);
+            const auto cache_miss_sample = measure_event(cache_misses, table[index], input);
+            const bool verified = timed_verified && cycle_sample.verified && instruction_sample.verified &&
+                                  branch_sample.verified && branch_miss_sample.verified &&
+                                  cache_reference_sample.verified && cache_miss_sample.verified;
+
+            std::cout << 2 << ',' << table[index].name << ',' << pattern << ',' << n << ','
                       << trial << ',' << seed_value << ',' << fingerprint << ','
                       << execution_order++ << ','
                       << std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count()
-                      << ',' << (perf.available ? 1 : 0) << ',' << perf.cycles << ','
-                      << perf.instructions << ',' << perf.branches << ',' << perf.branch_misses
-                      << ',' << perf.cache_references << ',' << perf.cache_misses << ','
-                      << (verified ? 1 : 0) << '\n';
+                      << ',' << (cycle_sample.available ? 1 : 0) << ',' << cycle_sample.value
+                      << ',' << (instruction_sample.available ? 1 : 0) << ',' << instruction_sample.value
+                      << ',' << (branch_sample.available ? 1 : 0) << ',' << branch_sample.value
+                      << ',' << (branch_miss_sample.available ? 1 : 0) << ',' << branch_miss_sample.value
+                      << ',' << (cache_reference_sample.available ? 1 : 0) << ',' << cache_reference_sample.value
+                      << ',' << (cache_miss_sample.available ? 1 : 0) << ',' << cache_miss_sample.value
+                      << ',' << (verified ? 1 : 0) << '\n';
             if (!verified) return 1;
           }
         }

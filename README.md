@@ -34,7 +34,12 @@ These are controlled probes, not claims about the frequency of real-world worklo
 
 `sort_records` benchmarks nine representative algorithms over fixed-size key/payload records. Payload widths span 0, 1, 3, 7, 15, and 31 64-bit words; the executable records the actual ABI `sizeof(record)`.
 
-Every record retains its original ordinal and deterministic payload, allowing the harness to verify nondecreasing key order, exact record/payload preservation, empirical stability on equal keys, and stability guarantees for algorithms that claim them.
+Every record retains its original ordinal and deterministic payload, allowing the harness to verify:
+
+- nondecreasing key order;
+- exact record/payload preservation;
+- empirical stability on equal keys;
+- stability guarantees for algorithms that claim them.
 
 Project-controlled algorithms also expose explicit record moves and `explicit_bytes_moved`. These are algorithmic observables, not estimates of cache or DRAM traffic.
 
@@ -42,7 +47,11 @@ Project-controlled algorithms also expose explicit record moves and `explicit_by
 
 A central research question is whether a practical sorter should combine mechanisms rather than use one algorithm everywhere.
 
-`sort_cutoffs` treats the insertion-sort base-case threshold as an experimental variable for merge sort + insertion leaves, median-of-three quicksort + insertion leaves, and introsort + insertion leaves.
+`sort_cutoffs` treats the insertion-sort base-case threshold as an experimental variable for:
+
+- merge sort + insertion leaves;
+- median-of-three quicksort + insertion leaves;
+- introsort + insertion leaves.
 
 ```sh
 ./build/sort_cutoffs \
@@ -50,12 +59,15 @@ A central research question is whether a practical sorter should combine mechani
   --sizes 8,12,16,24,32,48,64,96,128,192,256,512,1024,2048,4096,8192 \
   --patterns random,sorted,few_unique,nearly_sorted,runs \
   --trials 51 > cutoffs.csv
+
 python3 tools/tune_cutoffs.py cutoffs.csv --output cutoff-summary.csv
 ```
 
 The tuning tool selects a cutoff on training trials and evaluates it on a deterministic held-out split. The repository does **not** assume one folklore threshold is universally optimal.
 
-`tools/claim_matrix.py` evaluates preregistered paired claims including insertion-vs-merge crossover, linear-vs-binary insertion, hybrid-vs-pure merge/quicksort, two-way-vs-three-way quicksort, radix digit width, and run-adaptive-vs-fixed merge. See [`docs/hybrid-research.md`](docs/hybrid-research.md).
+`tools/claim_matrix.py` evaluates preregistered paired claims including insertion-vs-merge crossover, linear-vs-binary insertion, hybrid-vs-pure merge/quicksort, two-way-vs-three-way quicksort, radix digit width, and run-adaptive-vs-fixed merge.
+
+See [`docs/hybrid-research.md`](docs/hybrid-research.md).
 
 ## Experimental algorithm portfolios
 
@@ -67,23 +79,33 @@ The scalar benchmark records a small, deterministic input-feature probe **after 
 ./build/sort_lab \
   --algorithms intro,natural_merge,quick_3way,radix_lsd_11,std_sort \
   --patterns random,sorted,few_unique,nearly_sorted,runs,plateau \
-  --sizes 16,32,64,128,256,512,1024,4096,16384 --trials 60 > portfolio.csv
+  --sizes 16,32,64,128,256,512,1024,4096,16384 \
+  --trials 60 > portfolio.csv
+
 python3 tools/portfolio.py portfolio.csv \
   --algorithms intro,natural_merge,quick_3way,radix_lsd_11,std_sort \
   --output portfolio-summary.csv
 ```
 
-The output compares the held-out selector against the best single training-selected algorithm and the unattainable held-out per-instance oracle.
+The output compares the held-out selector against the best single training-selected algorithm and the unattainable held-out per-instance oracle. This provides a disciplined way to ask whether a portfolio can beat a fixed algorithm without leaking generator labels into runtime decisions.
 
 ## Hardware counters
 
-`sort_perf` wraps the sorting call with Linux `perf_event_open` counters for cycles, retired instructions, branch instructions/misses, and cache references/misses.
+`sort_perf` uses Linux `perf_event_open` for:
+
+- cycles;
+- retired instructions;
+- branch instructions and branch misses;
+- cache references and cache misses.
+
+Wall time is collected in a counter-free pass. Each hardware event is then measured in its own **fresh sort pass over the identical input**, avoiding the requirement that all six events fit simultaneously in the CPU's programmable-counter budget.
 
 ```sh
 ./build/sort_perf --cpu 2 \
   --algorithms intro,merge_insertion_24,dual_pivot,radix_lsd_11,std_sort \
   --patterns random,few_unique,nearly_sorted \
   --sizes 1024,16384,262144 --trials 31 > perf.csv
+
 python3 tools/analyze_perf.py perf.csv --output perf-summary.csv
 ```
 
@@ -96,7 +118,9 @@ The harness fails closed when counters are unavailable or unusable. Unsupported/
 ```sh
 ./build/sort_alloc \
   --algorithms heap,merge,natural_merge,radix_lsd,std_sort,std_stable_sort \
-  --patterns random,nearly_sorted --sizes 1024,16384,262144 --trials 11 > alloc.csv
+  --patterns random,nearly_sorted --sizes 1024,16384,262144 \
+  --trials 11 > alloc.csv
+
 python3 tools/analyze_alloc.py alloc.csv --output alloc-summary.csv
 ```
 
@@ -122,7 +146,7 @@ The local test suite covers scalar correctness, record correctness/stability/pay
 
 ## Reproducibility bundle
 
-`tools/run_experiment.py` wraps any benchmark executable and captures raw CSV plus a manifest containing raw-data SHA-256, binary SHA-256, command line, Git state, host metadata, requested affinity, and available Linux/macOS control state.
+`tools/run_experiment.py` wraps any benchmark executable and captures the raw CSV plus a manifest containing raw-data SHA-256, binary SHA-256, command line, Git state, host metadata, requested affinity, and available Linux/macOS control state.
 
 ```sh
 python3 tools/run_experiment.py --cpu 2 --settle-ms 1000 \
@@ -135,6 +159,11 @@ The wrapper records host state; it does not silently change governors, turbo, th
 ## Statistical analysis
 
 Scalar and record reducers report robust descriptive statistics, bootstrap uncertainty, paired speedup, paired win rate, and exact paired sign tests. `tools/crossovers.py` identifies candidate adjacent size brackets where paired speedup crosses 1.0 and distinguishes exploratory crossings from brackets whose endpoint intervals lie on opposite sides of parity.
+
+```sh
+python3 tools/analyze.py scalar.csv --baseline std_sort --bootstrap 5000 --output summary.csv
+python3 tools/crossovers.py summary.csv --output crossovers.csv
+```
 
 Raw trials remain canonical. No automatic outlier deletion is performed.
 

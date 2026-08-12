@@ -109,11 +109,9 @@ The oracle is diagnostic; it is not an implementable algorithm.
 
 ## 11. Hardware counters
 
-`sort_perf` uses Linux `perf_event_open` around only the sorting call. It requests cycles, instructions, branches, branch misses, cache references, and cache misses.
+`sort_perf` uses Linux `perf_event_open` around only the sorting call. Wall time is measured in a counter-free pass. Cycles, instructions, branches, branch misses, cache references, and cache misses are then measured one event at a time in fresh same-input sort passes. This avoids requiring all events to fit in one programmable-counter group or silently introducing counter multiplexing.
 
-Events can be denied, virtualized, or multiplexed. The harness scales multiplexed events using kernel time-enabled/time-running values and marks the sample unavailable if counters cannot be obtained meaningfully. An unavailable event set is not interpreted as zero work.
-
-Ratios such as CPI or miss rate are mechanism diagnostics, not universal cost functions.
+Events can be denied or virtualized. Availability is recorded per event and unavailable/zero-invalid observations are not interpreted as zero work. Since event types come from separate paired executions, CPI and miss-rate summaries combine same-input observations rather than claiming simultaneous counts. They remain mechanism diagnostics, not universal cost functions.
 
 ## 12. Allocation measurement
 

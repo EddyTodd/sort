@@ -141,9 +141,9 @@ static void natural_merge_sort(std::vector<Value>& values, Stats& stats) {
                lessv<Count>(values[hi], values[hi - 1], stats)) {
           ++hi;
         }
-        std::reverse(values.begin() + static_cast<std::ptrdiff_t>(lo),
-                     values.begin() + static_cast<std::ptrdiff_t>(hi));
-        if constexpr (Count) stats.writes += static_cast<std::uint64_t>(hi - lo);
+        for (std::size_t left = lo, right = hi - 1; left < right; ++left, --right) {
+          swapv<Count>(values[left], values[right], stats);
+        }
       } else {
         while (hi < values.size() &&
                !lessv<Count>(values[hi], values[hi - 1], stats)) {
@@ -203,10 +203,10 @@ static void merge_insertion_24(std::vector<Value>& values, Stats& stats) {
   merge_insertion_runtime<Count>(values, stats, 24);
 }
 
-static Value median3_value(Value x, Value y, Value z, Stats& stats,
-                           bool count) {
+template <bool Count>
+static Value median3_value(Value x, Value y, Value z, Stats& stats) {
   const auto less = [&](Value left, Value right) {
-    if (count) ++stats.comparisons;
+    if constexpr (Count) ++stats.comparisons;
     return left < right;
   };
   if (less(x, y)) {
@@ -221,8 +221,8 @@ template <bool Count>
 static std::size_t median3_partition(std::vector<Value>& values, std::size_t lo,
                                      std::size_t hi, Stats& stats) {
   const std::size_t mid = lo + (hi - lo) / 2;
-  const Value pivot = median3_value(values[lo], values[mid], values[hi - 1],
-                                    stats, Count);
+  const Value pivot =
+      median3_value<Count>(values[lo], values[mid], values[hi - 1], stats);
   std::size_t i = lo;
   std::size_t j = hi - 1;
   for (;;) {

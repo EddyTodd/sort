@@ -4,7 +4,7 @@ Wall time can show that two algorithms differ; it cannot by itself identify the 
 
 ## Hardware counters
 
-`sort_perf` uses Linux `perf_event_open` around only the sorting call. It requests:
+`sort_perf` uses Linux `perf_event_open` around only the sorting call. Wall time is collected in a separate counter-free pass; each hardware event is then collected in its own fresh sort pass over the identical input. This design avoids forcing six events into one hardware counter group and avoids kernel multiplexing as a hidden comparison variable. It requests:
 
 - CPU cycles;
 - retired instructions;
@@ -23,9 +23,9 @@ Example:
 python3 tools/analyze_perf.py perf.csv --output perf-summary.csv
 ```
 
-Linux permissions, virtual machines, containers, and some cloud environments may deny or virtualize performance counters. The harness fails closed: if events cannot be opened/read or produce an unusable zero-count result, `perf_available=0` is emitted. Zeroes are never presented as real measurements.
+Linux permissions, virtual machines, containers, and some cloud environments may deny or virtualize performance counters. Availability is recorded **per event**; unavailable or unusable events are not interpreted as zero work.
 
-Counter ratios such as CPI, branch-miss rate, and cache-miss rate are diagnostics, not universal cost functions. Multiplexed counters may be scaled by the kernel and should be interpreted with the host manifest.
+Because different event types are measured on separate executions, ratios such as CPI or miss rate combine paired same-input observations rather than simultaneous counts. They are diagnostics, not universal cost functions, and should be interpreted with the host manifest.
 
 ## CPU affinity
 
