@@ -93,9 +93,11 @@ inline void bitonic_padded_range(std::vector<Value>& values, std::size_t lo,
                                  std::size_t hi, Stats& stats) {
   std::array<Value, N> buffer{};
   const std::size_t length = hi - lo;
-  for (std::size_t i = 0; i < length; ++i) buffer[i] = values[lo + i];
+  for (std::size_t i = 0; i < length; ++i) {
+    writev<Count>(buffer[i], values[lo + i], stats);
+  }
   for (std::size_t i = length; i < N; ++i) {
-    buffer[i] = std::numeric_limits<Value>::max();
+    writev<Count>(buffer[i], std::numeric_limits<Value>::max(), stats);
   }
   bitonic_network<N, Count>(buffer, stats);
   for (std::size_t i = 0; i < length; ++i) {
