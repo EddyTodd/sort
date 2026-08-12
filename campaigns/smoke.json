@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "campaign_id": "smoke-v1",
+  "description": "Fast end-to-end verification of campaign execution, artifact capture, and analyzers.",
+  "experiments": [
+    {
+      "id": "scalar",
+      "binary": "sort_lab",
+      "purpose": "Verify paired scalar collection and reduction.",
+      "repetitions": 1,
+      "args": ["--trials", "3", "--warmups", "0", "--sizes", "8,32,128", "--patterns", "random,few_unique,nearly_sorted", "--algorithms", "insertion,merge_insertion_24,quick_3way,intro,radix_lsd_11,std_sort"],
+      "analyses": [
+        {"tool": "analyze.py", "args": ["{raw}", "--baseline", "std_sort", "--bootstrap", "100", "--output", "{run_dir}/summary.csv"]},
+        {"tool": "claim_matrix.py", "args": ["{raw}", "--output", "{run_dir}/claims.csv"]}
+      ]
+    },
+    {
+      "id": "records",
+      "binary": "sort_records",
+      "purpose": "Verify record width, payload integrity, stability, and record reduction.",
+      "repetitions": 1,
+      "args": ["--trials", "2", "--warmups", "0", "--sizes", "16,128", "--payload-words", "0,7", "--patterns", "few_unique,nearly_sorted", "--algorithms", "insertion,merge,quick_3way,intro,radix_lsd,std_sort,std_stable_sort"],
+      "analyses": [
+        {"tool": "analyze_records.py", "args": ["{raw}", "--baseline", "std_sort", "--bootstrap", "100", "--output", "{run_dir}/summary.csv"]}
+      ]
+    },
+    {
+      "id": "cutoffs",
+      "binary": "sort_cutoffs",
+      "purpose": "Verify held-out insertion-cutoff tuning.",
+      "repetitions": 1,
+      "args": ["--trials", "8", "--sizes", "16,64,256", "--patterns", "random,nearly_sorted", "--cutoffs", "1,8,16,24,32,48"],
+      "analyses": [
+        {"tool": "tune_cutoffs.py", "args": ["{raw}", "--output", "{run_dir}/cutoff-summary.csv"]}
+      ]
+    },
+    {
+      "id": "alloc",
+      "binary": "sort_alloc",
+      "purpose": "Verify allocation-only evidence capture.",
+      "repetitions": 1,
+      "args": ["--trials", "2", "--sizes", "128,1024", "--patterns", "random", "--algorithms", "heap,merge,radix_lsd,std_sort,std_stable_sort"],
+      "analyses": [
+        {"tool": "analyze_alloc.py", "args": ["{raw}", "--output", "{run_dir}/summary.csv"]}
+      ]
+    },
+    {
+      "id": "perf",
+      "binary": "sort_perf",
+      "purpose": "Verify direct hardware-counter evidence where Linux perf events are available.",
+      "platforms": ["linux"],
+      "repetitions": 1,
+      "args": ["--trials", "2", "--sizes", "1024", "--patterns", "random", "--algorithms", "intro,merge_insertion_24,std_sort"],
+      "analyses": [
+        {"tool": "analyze_perf.py", "args": ["{raw}", "--output", "{run_dir}/summary.csv"]}
+      ]
+    }
+  ]
+}

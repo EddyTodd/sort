@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "campaign_id": "canonical-v1",
+  "description": "Tier-2 controlled evidence campaign for the portable single-threaded sorting laboratory. Run twice on each controlled host; use separate campaign roots for materially different compiler/library/CPU environments.",
+  "experiments": [
+    {
+      "id": "scalar-core",
+      "binary": "sort_lab",
+      "purpose": "Broad algorithm/workload/size evidence for H1-H7 and H10 plus paired scalar summaries.",
+      "repetitions": 2,
+      "args": ["--trials", "51", "--warmups", "2", "--quadratic-limit", "4096", "--sizes", "8,12,16,24,32,48,64,96,128,192,256,384,512,768,1024,2048,4096,8192,16384,32768,65536,131072,262144,524288,1048576"],
+      "analyses": [
+        {"tool": "analyze.py", "args": ["{raw}", "--baseline", "std_sort", "--bootstrap", "5000", "--output", "{run_dir}/summary.csv"]},
+        {"tool": "claim_matrix.py", "args": ["{raw}", "--output", "{run_dir}/claims.csv"]}
+      ]
+    },
+    {
+      "id": "record-core",
+      "binary": "sort_records",
+      "purpose": "Record-width, movement, and stability evidence for H8-H9.",
+      "repetitions": 2,
+      "args": ["--trials", "31", "--warmups", "2", "--sizes", "16,32,64,128,256,512,1024,2048,4096,8192,16384,32768,65536,131072,262144", "--payload-words", "0,1,3,7,15,31"],
+      "analyses": [
+        {"tool": "analyze_records.py", "args": ["{raw}", "--baseline", "std_sort", "--bootstrap", "5000", "--output", "{run_dir}/summary.csv"]},
+        {"tool": "crossovers.py", "args": ["{run_dir}/summary.csv", "--output", "{run_dir}/crossovers.csv"]}
+      ]
+    },
+    {
+      "id": "hybrid-cutoffs",
+      "binary": "sort_cutoffs",
+      "purpose": "Held-out threshold selection/evaluation for H1 and H3.",
+      "repetitions": 2,
+      "args": ["--trials", "80", "--cutoffs", "1,4,8,12,16,20,24,32,40,48,64,80,96,128", "--sizes", "8,12,16,24,32,48,64,96,128,192,256,384,512,768,1024,2048,4096,8192", "--patterns", "random,sorted,reversed,few_unique,binary,all_equal,nearly_sorted,runs,descending_runs,plateau"],
+      "analyses": [
+        {"tool": "tune_cutoffs.py", "args": ["{raw}", "--output", "{run_dir}/cutoff-summary.csv"]}
+      ]
+    },
+    {
+      "id": "portfolio",
+      "binary": "sort_lab",
+      "purpose": "Held-out feature-based algorithm selection for H11.",
+      "repetitions": 2,
+      "args": ["--trials", "80", "--warmups", "2", "--sizes", "16,32,64,128,256,512,1024,2048,4096,8192,16384,65536,262144", "--patterns", "random,sorted,reversed,few_unique,binary,all_equal,nearly_sorted,runs,descending_runs,rotated,plateau", "--algorithms", "intro,natural_merge,quick_3way,dual_pivot,radix_lsd_11,std_sort"],
+      "analyses": [
+        {"tool": "portfolio.py", "args": ["{raw}", "--algorithms", "intro,natural_merge,quick_3way,dual_pivot,radix_lsd_11,std_sort", "--output", "{run_dir}/portfolio-summary.csv"]}
+      ]
+    },
+    {
+      "id": "allocation",
+      "binary": "sort_alloc",
+      "purpose": "Direct allocator evidence supporting allocation mechanism claims.",
+      "repetitions": 2,
+      "args": ["--trials", "31", "--sizes", "1024,4096,16384,65536,262144,1048576", "--patterns", "random,nearly_sorted,runs", "--algorithms", "heap,merge,merge_bottom_up,natural_merge,radix_lsd,radix_lsd_11,std_sort,std_stable_sort"],
+      "analyses": [
+        {"tool": "analyze_alloc.py", "args": ["{raw}", "--output", "{run_dir}/summary.csv"]}
+      ]
+    },
+    {
+      "id": "hardware",
+      "binary": "sort_perf",
+      "purpose": "Direct CPU mechanism evidence for H5 and H7 on Linux hosts with usable perf events.",
+      "platforms": ["linux"],
+      "repetitions": 2,
+      "args": ["--trials", "31", "--sizes", "1024,4096,16384,65536,262144,1048576", "--patterns", "random,few_unique,binary,nearly_sorted,runs", "--algorithms", "heap,merge_insertion_24,quick_3way,dual_pivot,intro,radix_lsd,radix_lsd_11,std_sort"],
+      "analyses": [
+        {"tool": "analyze_perf.py", "args": ["{raw}", "--output", "{run_dir}/summary.csv"]}
+      ]
+    }
+  ]
+}
