@@ -17,7 +17,8 @@
 namespace sortlab {
 inline std::uint64_t fnv1a(std::string_view text) {
   std::uint64_t hash = 14695981039346656037ULL;
-  for (const unsigned char c : text) {
+  for (const char raw : text) {
+    const auto c = static_cast<unsigned char>(raw);
     hash ^= c;
     hash *= 1099511628211ULL;
   }
