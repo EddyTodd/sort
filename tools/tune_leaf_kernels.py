@@ -9,6 +9,9 @@ import statistics
 from collections import defaultdict
 from pathlib import Path
 
+Config = tuple[str, str, int]
+Instance = tuple[str, str, int, int, str]
+
 
 def median(values: list[float]) -> float:
     return float(statistics.median(values)) if values else math.nan
@@ -38,11 +41,14 @@ def read(path: Path) -> list[tuple[str, str, int, str, int, int, str, float]]:
 def tune(rows: list[tuple[str, str, int, str, int, int, str, float]]) \
         -> list[dict[str, object]]:
     train: dict[tuple[str, str, int, str, int], list[float]] = defaultdict(list)
-    heldout: dict[tuple[str, str, int, str, int], list[float]] = defaultdict(list)
+    heldout_instances: dict[Instance, dict[Config, float]] = defaultdict(dict)
+
     for family, kernel, cutoff, pattern, n, trial, input_hash, elapsed in rows:
-        del input_hash
-        target = heldout if trial % 3 == 2 else train
-        target[(family, pattern, n, kernel, cutoff)].append(elapsed)
+        if trial % 3 == 2:
+            heldout_instances[(family, pattern, n, trial, input_hash)][
+                (family, kernel, cutoff)] = elapsed
+        else:
+            train[(family, pattern, n, kernel, cutoff)].append(elapsed)
 
     cells = sorted({(family, pattern, n)
                     for family, _, _, pattern, n, _, _, _ in rows})
@@ -62,12 +68,23 @@ def tune(rows: list[tuple[str, str, int, str, int, int, str, float]]) \
 
         train_ns, selected_kernel, selected_cutoff = min(candidates)
         insertion_train_ns, _, insertion_cutoff = min(insertion_candidates)
-        selected = heldout.get(
-            (family, pattern, n, selected_kernel, selected_cutoff), [])
-        baseline = heldout.get(
-            (family, pattern, n, "insertion", insertion_cutoff), [])
-        selected_median = median(selected)
-        baseline_median = median(baseline)
+        selected_config = (family, selected_kernel, selected_cutoff)
+        baseline_config = (family, "insertion", insertion_cutoff)
+
+        selected_values: list[float] = []
+        baseline_values: list[float] = []
+        paired_speedups: list[float] = []
+        for (instance_family, instance_pattern, instance_n, _, _), peers in heldout_instances.items():
+            if (instance_family, instance_pattern, instance_n) != (family, pattern, n):
+                continue
+            if selected_config not in peers or baseline_config not in peers:
+                continue
+            selected_ns = peers[selected_config]
+            baseline_ns = peers[baseline_config]
+            selected_values.append(selected_ns)
+            baseline_values.append(baseline_ns)
+            if selected_ns > 0:
+                paired_speedups.append(baseline_ns / selected_ns)
 
         output.append({
             "family": family,
@@ -78,12 +95,13 @@ def tune(rows: list[tuple[str, str, int, str, int, int, str, float]]) \
             "train_median_ns": train_ns,
             "best_insertion_cutoff": insertion_cutoff,
             "best_insertion_train_median_ns": insertion_train_ns,
-            "heldout_samples": len(selected),
-            "heldout_selected_median_ns": selected_median,
-            "heldout_insertion_median_ns": baseline_median,
-            "heldout_speedup_vs_tuned_insertion":
-                baseline_median / selected_median
-                if selected and baseline and selected_median > 0 else math.nan,
+            "heldout_samples": len(paired_speedups),
+            "heldout_selected_median_ns": median(selected_values),
+            "heldout_insertion_median_ns": median(baseline_values),
+            "heldout_paired_median_speedup_vs_tuned_insertion": median(paired_speedups),
+            "heldout_win_rate_vs_tuned_insertion":
+                sum(value > 1 for value in paired_speedups) / len(paired_speedups)
+                if paired_speedups else math.nan,
             "network_selected": int(selected_kernel == "bitonic_network"),
         })
     return output
@@ -112,7 +130,8 @@ def self_test() -> int:
     assert len(result) == 1
     assert result[0]["selected_kernel"] == "bitonic_network"
     assert result[0]["best_insertion_cutoff"] == 16
-    assert result[0]["heldout_speedup_vs_tuned_insertion"] > 1.2
+    assert result[0]["heldout_paired_median_speedup_vs_tuned_insertion"] > 1.2
+    assert result[0]["heldout_win_rate_vs_tuned_insertion"] == 1
     print("PASS: held-out joint leaf-kernel/cutoff tuning")
     return 0
 
