@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(sort_lab VERSION 0.5.0 LANGUAGES CXX)
+project(sort_lab VERSION 0.6.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -28,6 +28,8 @@ sortlab_executable(sort_perf src/sort_perf.cpp)
 sortlab_executable(sort_alloc src/sort_alloc.cpp)
 
 include(CTest)
+include(cmake/ExternalBaselines.cmake)
+
 if(BUILD_TESTING)
   add_test(NAME sort_self_test COMMAND sort_lab --self-test)
   add_test(
@@ -73,5 +75,7 @@ if(BUILD_TESTING)
              COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/evidence_ledger.py --self-test)
     add_test(NAME research_report_self_test
              COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/report.py --self-test)
+    add_test(NAME external_bootstrap_self_test
+             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/bootstrap_external.py --self-test)
   endif()
 endif()

@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "baselines": [
+    {
+      "id": "pdqsort",
+      "repository": "https://github.com/orlp/pdqsort.git",
+      "commit": "b1ef26a55cdb60d236a5cb199c4234c704f46726",
+      "license": "zlib",
+      "license_path": "license.txt",
+      "required_paths": ["pdqsort.h", "license.txt"],
+      "include_dir": ".",
+      "adapter": "pdqsort"
+    },
+    {
+      "id": "ips4o",
+      "repository": "https://github.com/ips4o/ips4o.git",
+      "commit": "08a5b926ee65cef19139057c6bde02bb5542c1cb",
+      "license": "BSD-2-Clause",
+      "license_path": "LICENSE",
+      "required_paths": ["include/ips4o.hpp", "LICENSE"],
+      "include_dir": "include",
+      "adapter": "ips4o_sequential"
+    }
+  ]
+}
