@@ -102,6 +102,18 @@ int self_test() {
     }
   }
 
+  for (const auto* pattern : {"run_equal32", "run_long_short", "run_power_skew",
+                              "run_fibonacci", "run_alternating_direction"}) {
+    for (const std::size_t n : {31U, 32U, 33U, 63U, 64U, 65U, 127U, 315U, 1024U}) {
+      const auto intended = run_shape_lengths(pattern, n);
+      const auto observed = natural_run_lengths(make_run_shaped_data(pattern, n));
+      if (observed != intended) {
+        std::cerr << "FAIL controlled run geometry " << pattern << " n=" << n << '\n';
+        return 1;
+      }
+    }
+  }
+
   const auto all = treatments({}, {});
   std::size_t cases = 0;
   for (const auto& treatment : all) {
