@@ -23,6 +23,14 @@ static std::uint64_t fnv1a(std::string_view text) {
   return hash;
 }
 
+static std::uint64_t bounded(std::mt19937_64& rng, std::uint64_t bound) {
+  if (bound == 0) throw std::runtime_error("bounded RNG requires a positive bound");
+  const std::uint64_t threshold = (std::uint64_t{0} - bound) % bound;
+  std::uint64_t value = 0;
+  do { value = rng(); } while (value < threshold);
+  return value % bound;
+}
+
 static std::uint64_t splitmix64(std::uint64_t x) {
   x += 0x9E3779B97F4A7C15ULL;
   x = (x ^ (x >> 30)) * 0xBF58476D1CE4E5B9ULL;
@@ -54,7 +62,7 @@ static std::vector<Value> base_random(std::size_t n, std::uint64_t seed) {
   std::mt19937_64 rng(seed);
   std::vector<Value> out(n);
   for (auto& value : out) {
-    value = static_cast<Value>(rng() % 2000000001ULL) - 1000000000LL;
+    value = static_cast<Value>(bounded(rng, 2000000001ULL)) - 1000000000LL;
   }
   return out;
 }
@@ -74,7 +82,7 @@ static std::vector<Value> make_data(std::string_view pattern, std::size_t n, std
     return a;
   }
   if (pattern == "few_unique") {
-    for (auto& value : a) value = static_cast<Value>(rng() % 8ULL);
+    for (auto& value : a) value = static_cast<Value>(bounded(rng, 8));
     return a;
   }
   if (pattern == "all_equal") {
@@ -86,8 +94,8 @@ static std::vector<Value> make_data(std::string_view pattern, std::size_t n, std
     if (n > 1) {
       const std::size_t swaps = std::max<std::size_t>(1, n / 100);
       for (std::size_t k = 0; k < swaps; ++k) {
-        const auto i = static_cast<std::size_t>(rng() % n);
-        const auto j = static_cast<std::size_t>(rng() % n);
+        const auto i = static_cast<std::size_t>(bounded(rng, static_cast<std::uint64_t>(n)));
+        const auto j = static_cast<std::size_t>(bounded(rng, static_cast<std::uint64_t>(n)));
         std::swap(a[i], a[j]);
       }
     }
@@ -162,7 +170,7 @@ static std::vector<std::string> selected_patterns(const std::vector<std::string>
 static void deterministic_shuffle(std::vector<std::size_t>& values, std::uint64_t seed) {
   std::mt19937_64 rng(seed);
   for (std::size_t i = values.size(); i > 1; --i) {
-    const auto j = static_cast<std::size_t>(rng() % i);
+    const auto j = static_cast<std::size_t>(bounded(rng, static_cast<std::uint64_t>(i)));
     std::swap(values[i - 1], values[j]);
   }
 }
