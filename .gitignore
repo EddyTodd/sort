@@ -11,3 +11,4 @@ __pycache__/
 results/*/raw.csv
 results/*/summary.csv
 results/campaigns/
+external/vendor/
