@@ -10,3 +10,4 @@ __pycache__/
 *.pyc
 results/*/raw.csv
 results/*/summary.csv
+results/campaigns/
