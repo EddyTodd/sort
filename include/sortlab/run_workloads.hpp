@@ -56,17 +56,38 @@ inline std::vector<Value> make_run_shaped_data(std::string_view pattern,
   const auto lengths = run_shape_lengths(pattern, n);
   std::vector<Value> values;
   values.reserve(n);
-  Value high = static_cast<Value>(n * 4 + 1024);
-  for (std::size_t r = 0; r < lengths.size(); ++r) {
-    const std::size_t len = lengths[r];
-    const Value low = high - static_cast<Value>(len);
-    std::vector<Value> block;
-    block.reserve(len);
-    for (std::size_t i = 0; i < len; ++i) block.push_back(low + static_cast<Value>(i));
-    if (pattern == "run_alternating_direction" && (r % 2 == 1)) {
-      std::reverse(block.begin(), block.end());
+
+  if (pattern == "run_alternating_direction") {
+    // Construct exact alternating monotone runs.  After a descending run, the
+    // next ascending run starts one value above the previous endpoint so the
+    // strict-descending detector cannot consume that first element.
+    Value cursor = static_cast<Value>(n * 4 + 1024);
+    for (std::size_t r = 0; r < lengths.size(); ++r) {
+      const std::size_t len = lengths[r];
+      if ((r % 2) == 0) {
+        const Value low = cursor - static_cast<Value>(len) + 1;
+        for (std::size_t i = 0; i < len; ++i) {
+          values.push_back(low + static_cast<Value>(i));
+        }
+        cursor = low - 1;
+      } else {
+        const Value high = cursor;
+        const Value low = high - static_cast<Value>(len) + 1;
+        for (std::size_t i = 0; i < len; ++i) {
+          values.push_back(high - static_cast<Value>(i));
+        }
+        cursor = low + static_cast<Value>(len);
+      }
     }
-    values.insert(values.end(), block.begin(), block.end());
+    return values;
+  }
+
+  Value high = static_cast<Value>(n * 4 + 1024);
+  for (const std::size_t len : lengths) {
+    const Value low = high - static_cast<Value>(len);
+    for (std::size_t i = 0; i < len; ++i) {
+      values.push_back(low + static_cast<Value>(i));
+    }
     high = low - 7;
   }
   return values;
