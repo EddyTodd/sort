@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+title: "sort: a reproducible sorting-algorithm research laboratory"
+message: "If you use this software or its benchmark methodology, please cite the repository and the exact release or commit used."
+type: software
+authors:
+  - family-names: Todd
+    given-names: Eddy
+repository-code: "https://github.com/EddyTodd/sort"
+license: MIT
+version: 0.2.0
+keywords:
+  - sorting algorithms
+  - benchmarking
+  - algorithms
+  - reproducibility
+  - C++

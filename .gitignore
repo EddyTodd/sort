@@ -6,3 +6,7 @@ cmake-build-*/
 *.out
 *.dSYM/
 .DS_Store
+__pycache__/
+*.pyc
+results/*/raw.csv
+results/*/summary.csv

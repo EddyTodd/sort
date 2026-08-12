@@ -1,58 +1,117 @@
 # Benchmark methodology
 
-## Objective
+## 1. Objective
 
-The benchmark is intended to produce falsifiable, reproducible claims about sorting implementations. It separates three questions that are often conflated: correctness, abstract algorithmic work, and observed machine performance.
+The benchmark produces falsifiable, reproducible evidence about sorting implementations. It deliberately separates four questions:
 
-## Correctness contract
+1. **Correctness:** does the implementation produce the required ordering and preserve the input multiset?
+2. **Abstract work:** how many observable comparisons, swaps, and writes does the implementation perform?
+3. **Machine performance:** how long does the implementation take under a defined software/hardware environment?
+4. **Statistical evidence:** how stable is the observed difference, and does it persist across independent input instances?
 
-Every measured result must be nondecreasing and must contain exactly the same values as its input. The harness enforces this by sorting an independent copy with the standard library and requiring exact vector equality. A failed verification aborts the run rather than publishing a timing for an incorrect implementation.
+No single metric answers all four.
 
-The deterministic self-test covers empty and singleton inputs, duplicates, negative values, ordered and reverse-ordered data, and generated duplicate-heavy cases for every registered algorithm.
+## 2. Correctness contract
 
-## Workloads
+Every timed and instrumented run is checked against an independently sorted reference copy. A failure aborts the experiment; an incorrect implementation never contributes a timing row.
 
-Milestone 1 uses five deterministic families:
+`--self-test` exercises every algorithm in both counter-disabled and counter-enabled modes on edge cases and every workload family, including empty ranges, duplicates, signed extremes, structured inputs, and deterministic generated data. It also tests the seed/fingerprint reproducibility contract.
 
-1. `random`: uniform signed 64-bit values drawn from a bounded range.
-2. `sorted`: the random sample sorted ascending.
-3. `reversed`: the random sample sorted descending.
-4. `few_unique`: values drawn from eight keys, stressing duplicate behavior.
-5. `nearly_sorted`: ascending data followed by approximately 1% random swaps.
+## 3. Timing versus instrumentation
 
-Inputs are generated once per `(pattern, n, seed)` and copied for each algorithm so competitors receive identical values. The timed region excludes input generation, copying, output, and correctness verification.
+Operation counters must not contaminate elapsed-time measurements. Each algorithm therefore has two compile-time instantiations:
 
-## Metrics
+- **timed:** counter updates compile out;
+- **instrumented:** counter updates are enabled and the pass is not timed.
 
-`ns` is wall-clock elapsed nanoseconds from `std::chrono::steady_clock`. It is useful for end-to-end local comparisons but sensitive to CPU frequency, scheduling, thermals, memory hierarchy, compiler, and build flags.
+For one trial, all algorithms complete their timed runs before any instrumentation pass begins. This prevents an instrumented run from directly warming data for the next timed competitor in the same trial.
 
-`comparisons` counts ordering predicates issued by the implementation. `swaps` counts explicit swaps in implementations controlled by this project. `writes` counts explicit element writes where the implementation exposes them. Standard-library algorithms only expose comparisons through the supplied comparator, so their swap/write fields intentionally remain zero rather than pretending inaccessible operations were measured.
+Input generation, input copying, verification, CSV output, and operation-count collection are outside the timed region. Allocations performed by the sorting implementation itself remain inside the timed region because they are part of that implementation's end-to-end cost.
 
-## Repetition and statistics
+## 4. Independent trials and pairing
 
-The executable emits raw trials instead of collapsing them inside the benchmark. Analysis should retain raw samples and report at least median, interquartile range, and a robust uncertainty estimate. For publication-quality comparisons, use enough independent repetitions to stabilize the estimate, randomize or rotate execution order to assess order effects, and report effect sizes and confidence intervals rather than relying only on point estimates.
+A trial seed is deterministically derived from `(experiment_seed, pattern, n, trial)`. Consequently, each trial receives a distinct input while every algorithm in that trial receives identical values.
 
-A later milestone should add bootstrap confidence intervals and explicit crossover analysis: the goal is not merely to rank algorithms, but to estimate where one implementation becomes materially faster than another under each workload.
+This design enables paired comparisons. `tools/analyze.py` matches algorithms by `(pattern, n, trial, input_hash)` before calculating speedup against a baseline. Paired ratios reduce variance from input-instance difficulty and prevent accidental comparison of unrelated datasets.
 
-## Environment reporting
+The same experiment seed reproduces the same trial seeds and dataset fingerprints. Seed derivation, workload generation, shuffling, and hashing use project-defined deterministic operations rather than `std::hash` or standard-library distributions whose exact mapping is not a cross-implementation experiment identity contract.
 
-Published results must record:
+## 5. Execution-order bias
 
-- CPU model, core topology, and architecture;
-- operating system and version;
-- compiler and version;
+Algorithm order is deterministically shuffled independently for every measured trial. The emitted `execution_order` column makes order effects observable and supports later regression/covariate analysis.
+
+Warmups are configurable and occur before measured trials for each `(pattern, n)` cell. Warmups are correctness-checked but not emitted as measurements.
+
+Randomized order does not eliminate thermal drift, scheduler effects, frequency scaling, or shared-system noise. Canonical runs should additionally control the host as described in `reproducibility.md`.
+
+## 6. Workload families
+
+Current deterministic workloads are:
+
+- `random`: bounded signed values from a deterministic MT19937-64 mapping;
+- `sorted`: ascending random sample;
+- `reversed`: descending random sample;
+- `few_unique`: eight keys;
+- `all_equal`: one key, isolating duplicate behavior;
+- `nearly_sorted`: ascending sample with approximately 1% swaps;
+- `organ_pipe`: values rise toward the center and fall symmetrically;
+- `sawtooth`: periodic 32-key structure;
+- `runs`: independently random data sorted within runs of 32.
+
+These are not claimed to represent all real workloads. They are controlled probes for order, entropy, duplicates, local structure, and partition behavior.
+
+## 7. Metrics
+
+`ns` is elapsed wall-clock nanoseconds from `std::chrono::steady_clock` around only the counter-disabled sort call.
+
+`comparisons`, `swaps`, and `writes` come from the separate instrumented pass. These counters are algorithmic observables, not a universal CPU cost model. In particular:
+
+- standard-library sort internals expose comparisons through the supplied comparator but not internal swaps/writes;
+- radix sort performs no ordering comparisons;
+- cache misses, branch misses, instructions, vectorization, allocation, and memory bandwidth are not represented by the current counters.
+
+Fields that cannot be observed are not estimated as if they were measurements.
+
+## 8. Statistical treatment
+
+Raw trials are canonical; summaries are derived artifacts. The included dependency-free analyzer reports:
+
+- sample count;
+- median;
+- first and third quartiles;
+- median absolute deviation (MAD);
+- percentile-bootstrap 95% confidence interval for the median;
+- paired median speedup and paired bootstrap interval versus a selected baseline.
+
+Bootstrap intervals are descriptive uncertainty estimates, not a substitute for experimental design. A publication-quality claim should use enough independent trials to stabilize both the center and interval, report exact sample counts, and show the full size/distribution curve rather than cherry-picking one cell.
+
+No automatic outlier removal is performed. If exclusions are scientifically justified, the rule must be specified before inspecting the result and both raw and filtered analyses must be retained.
+
+## 9. Environment reporting
+
+Canonical results require:
+
+- CPU model, architecture, topology, and relevant cache information;
+- OS/kernel version;
+- compiler and standard-library version;
 - optimization flags and build type;
-- source commit SHA;
-- benchmark seed and trial count;
-- whether frequency scaling/turbo was controlled;
-- relevant memory and cache information when available.
+- source commit and clean/dirty state;
+- command line, seed, warmups, and trial count;
+- frequency/turbo/affinity controls where applicable;
+- raw CSV SHA-256.
 
-Results without this metadata are exploratory, not canonical.
+`tools/run_experiment.py` captures a portable subset automatically. Platform-specific details that cannot be captured portably must be recorded manually rather than omitted from a publication claim.
 
-## Bias controls
+## 10. Known measurement threats
 
-The project should progressively add controls for warm-up effects, execution-order bias, CPU affinity, thermal throttling, background load, allocation effects, cache state, compiler dead-code elimination, and benchmark harness overhead. When a control cannot be applied portably, the limitation should be documented instead of hidden.
+The current harness does not yet control or measure:
 
-## Planned experimental expansion
+- CPU affinity, governor/turbo state, thermals, interrupt load, and context switches;
+- cache state or cache/TLB/branch hardware counters;
+- allocator counts and peak resident memory;
+- timer-call overhead for very small inputs;
+- energy and power;
+- interleaved multi-process interference;
+- compiler-generated code size or instruction mix.
 
-Future milestones will add more algorithm families and input distributions, element widths and record payload sizes, stability verification, memory-allocation accounting, peak auxiliary memory, Linux `perf` counters, branch and cache metrics, SIMD/parallel variants, multiple compilers and optimization levels, sanitizer validation, and scripts that convert raw CSV into versioned summary tables and plots.
+These limitations are research backlog items. Results should be scoped accordingly.
