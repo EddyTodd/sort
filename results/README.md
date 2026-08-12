@@ -12,6 +12,8 @@ Single-run artifacts use:
 <run-id>/claims.csv               # optional
 <run-id>/crossovers.csv           # optional
 <run-id>/cutoff-summary.csv       # optional, must preserve train/evaluation split
+<run-id>/tiny-summary.csv         # optional, paired tiny-kernel reduction
+<run-id>/leaf-tuning.csv          # optional, held-out kernel+cutoff evaluation
 <run-id>/portfolio-summary.csv    # optional, held-out selector evaluation
 ```
 
@@ -26,6 +28,8 @@ campaigns/<campaign-id>/<experiment-id>/rep-001/<derived analysis files>
 ```
 
 The committed experiment contract lives in `campaigns/*.json`. `campaign-manifest.json` records its content hash and the status of every planned repetition. `tools/validate_artifacts.py` must pass before a run is attached to `claims/registry.json` as evidence.
+
+Tiny-kernel direct results and integrated leaf-hybrid results remain separate artifacts because they answer different claims. A leaf treatment selected from training data must retain its held-out evaluation output rather than publishing the training winner alone.
 
 Hardware-counter and allocation campaigns retain distinct experiment IDs because their measurement contracts differ from canonical wall-time runs. A platform skip is absence of that measurement, never a zero-valued observation.
 
