@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(sort_lab VERSION 0.6.0 LANGUAGES CXX)
+project(sort_lab VERSION 0.7.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -26,6 +26,8 @@ sortlab_executable(sort_records src/sort_records.cpp)
 sortlab_executable(sort_cutoffs src/sort_cutoffs.cpp)
 sortlab_executable(sort_perf src/sort_perf.cpp)
 sortlab_executable(sort_alloc src/sort_alloc.cpp)
+sortlab_executable(sort_tiny src/sort_tiny.cpp)
+sortlab_executable(sort_leaf_hybrids src/sort_leaf_hybrids.cpp)
 
 include(CTest)
 include(cmake/ExternalBaselines.cmake)
@@ -48,6 +50,17 @@ if(BUILD_TESTING)
   add_test(NAME cutoff_self_test COMMAND sort_cutoffs --self-test)
   add_test(NAME perf_self_test COMMAND sort_perf --self-test)
   add_test(NAME allocation_self_test COMMAND sort_alloc --self-test)
+  add_test(NAME tiny_kernel_self_test COMMAND sort_tiny --self-test)
+  add_test(NAME leaf_hybrid_self_test COMMAND sort_leaf_hybrids --self-test)
+  add_test(
+    NAME tiny_kernel_smoke_benchmark
+    COMMAND sort_tiny --trials 2 --warmups 0 --sizes 2,7,16,31
+            --patterns random,sorted,few_unique
+            --kernels insertion,binary_insertion,bitonic_network,std_sort)
+  add_test(
+    NAME leaf_hybrid_smoke_benchmark
+    COMMAND sort_leaf_hybrids --trials 3 --warmups 0 --sizes 64,257
+            --patterns random,sorted,few_unique --cutoffs 4,16,32)
 
   find_package(Python3 COMPONENTS Interpreter QUIET)
   if(Python3_Interpreter_FOUND)
@@ -77,5 +90,9 @@ if(BUILD_TESTING)
              COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/report.py --self-test)
     add_test(NAME external_bootstrap_self_test
              COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/bootstrap_external.py --self-test)
+    add_test(NAME tiny_analysis_self_test
+             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/analyze_tiny.py --self-test)
+    add_test(NAME leaf_kernel_tuning_self_test
+             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/tune_leaf_kernels.py --self-test)
   endif()
 endif()
