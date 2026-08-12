@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "campaign_id": "tiny-kernels-v1",
+  "description": "Tier-2 study of direct tiny-sort kernels and jointly tuned hybrid leaf kernels/cutoffs. This campaign asks whether insertion sort is actually the best base-case sorter rather than assuming it from folklore.",
+  "experiments": [
+    {
+      "id": "tiny-direct",
+      "binary": "sort_tiny",
+      "purpose": "Measure insertion, binary insertion, a padded bitonic sorting network, and std::sort directly on small arrays using identical paired inputs.",
+      "repetitions": 2,
+      "args": [
+        "--trials", "101", "--warmups", "2",
+        "--kernels", "insertion,binary_insertion,bitonic_network,std_sort",
+        "--patterns", "random,sorted,reversed,few_unique,binary,all_equal,nearly_sorted,organ_pipe,sawtooth,runs,descending_runs,rotated,alternating_extremes,staggered,plateau",
+        "--sizes", "2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32"
+      ],
+      "analysis": [
+        ["python3", "tools/analyze_tiny.py", "{raw}", "--baseline", "insertion", "--bootstrap", "5000", "--output", "{run_dir}/summary.csv"]
+      ]
+    },
+    {
+      "id": "leaf-hybrids-coarse",
+      "binary": "sort_leaf_hybrids",
+      "purpose": "Jointly tune leaf kernel and cutoff for merge, median-of-three quicksort, and introsort, then evaluate held-out against the best insertion-only cutoff selected on the same training split.",
+      "repetitions": 2,
+      "args": [
+        "--trials", "31", "--warmups", "2",
+        "--families", "merge,quick,intro",
+        "--kernels", "insertion,binary_insertion,bitonic_network",
+        "--cutoffs", "4,8,12,16,20,24,28,32",
+        "--patterns", "random,sorted,reversed,few_unique,binary,nearly_sorted,runs,descending_runs,rotated,plateau",
+        "--sizes", "64,128,256,512,1024,4096,16384,65536,262144"
+      ],
+      "analysis": [
+        ["python3", "tools/tune_leaf_kernels.py", "{raw}", "--output", "{run_dir}/tuning.csv"]
+      ]
+    }
+  ]
+}

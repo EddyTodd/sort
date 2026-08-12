@@ -20,6 +20,21 @@ The canonical scalar harness contains 23 implementations/variants.
 
 The standalone cutoff harness treats the insertion threshold as a parameter instead of assuming 24 is universally optimal.
 
+## Tiny-kernel and hybrid-leaf track
+
+The small-set track is intentionally separate from the 23 top-level scalar algorithms because its treatments have an explicit domain (`n <= 32`) and are studied primarily as base cases for larger algorithms.
+
+`sort_tiny` implements:
+
+- linear insertion;
+- binary insertion;
+- a padded power-of-two bitonic sorting network;
+- `std::sort` as a direct small-set control.
+
+`sort_leaf_hybrids` then factorially combines the three project-controlled leaf kernels with merge sort, median-of-three quicksort, and introsort while independently varying the cutoff. This makes **leaf algorithm** and **leaf size** separate experimental variables.
+
+The bitonic network is not labelled optimal. Optimal-size networks, SIMD/register sorting networks, conditional-move-specialized code, and AlphaDev-derived sequences remain distinct future comparison treatments. See `docs/tiny-kernel-research.md`.
+
 ## Implemented record algorithms
 
 The record-width laboratory intentionally uses a smaller representative set: insertion, heap, stable merge, two-way quicksort, three-way quicksort, introsort, stable radix, `std::sort`, and `std::stable_sort`. The goal is factorial control over payload width and stability, not duplicating every scalar variant for every record type.
@@ -43,7 +58,7 @@ The following remain part of the research universe even when they are not vendor
 - VQSort: vectorized, architecture-portable quicksort;
 - in-place stable block merges such as WikiSort/Grail-style methods;
 - counting, bucket, American-flag/MSD radix, and other bounded-domain distribution sorts;
-- sorting networks for very small fixed sizes and vector registers;
+- optimal, SIMD/register, and architecture-specific tiny sorting networks;
 - parallel merge/sample/radix sorts, including parallel IPS4o as its own experiment model;
 - external-memory and NUMA-aware sorting.
 
@@ -58,6 +73,7 @@ A variant gets its own algorithm name when it changes a scientifically material 
 - Shell gap sequence;
 - radix digit width;
 - insertion/base-case cutoff;
+- leaf algorithm;
 - merge order/run policy;
 - stability or in-place guarantee;
 - branchless/vectorized partitioning;
