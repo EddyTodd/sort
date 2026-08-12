@@ -24,23 +24,30 @@ The standalone cutoff harness treats the insertion threshold as a parameter inst
 
 The record-width laboratory intentionally uses a smaller representative set: insertion, heap, stable merge, two-way quicksort, three-way quicksort, introsort, stable radix, `std::sort`, and `std::stable_sort`. The goal is factorial control over payload width and stability, not duplicating every scalar variant for every record type.
 
+## Provenance-pinned external track
+
+The first external comparison track is implemented as an opt-in build and a separate Tier-2 campaign. It currently contains:
+
+- `orlp/pdqsort` pinned to `b1ef26a55cdb60d236a5cb199c4234c704f46726`: `pdqsort` and `pdqsort_branchless`;
+- `ips4o/ips4o` pinned to `08a5b926ee65cef19139057c6bde02bb5542c1cb`: sequential `ips4o::sort`.
+
+These are measured in `sort_external` beside paired internal/library controls on the exact same generated inputs. Upstream source is not vendored into Git history; the bootstrap/provenance tools verify full commit, checkout cleanliness, required paths, license file hash, and Git tree identity before canonical evidence is collected. See `docs/external-baselines.md`.
+
 ## Important external/state-of-the-art families
 
-The following belong in the research universe even when they are not vendored into the core executable:
+The following remain part of the research universe even when they are not vendored into the core executable:
 
 - Timsort and Powersort/Peeksort: stable run-adaptive merging and merge-policy research;
-- Pattern-defeating quicksort (pdqsort): robust quicksort engineering for patterns and duplicates;
 - BlockQuicksort: branch-misprediction-aware partitioning;
 - QuickXsort / QuickMergesort: theoretically analyzed combinations of partitioning with another sorting method;
-- IPS4o: cache/branch-aware in-place sample sort, including parallel variants;
 - VQSort: vectorized, architecture-portable quicksort;
 - in-place stable block merges such as WikiSort/Grail-style methods;
 - counting, bucket, American-flag/MSD radix, and other bounded-domain distribution sorts;
 - sorting networks for very small fixed sizes and vector registers;
-- parallel merge/sample/radix sorts;
+- parallel merge/sample/radix sorts, including parallel IPS4o as its own experiment model;
 - external-memory and NUMA-aware sorting.
 
-These are not silently labelled "missing." They are separate comparison tracks because several require external code, architecture-specific intrinsics, parallel runtimes, different input contracts, or materially different memory models. A future adapter must pin the upstream version and preserve license/provenance rather than copying an arbitrary implementation into the benchmark.
+These are not silently labelled "missing." They are separate comparison tracks because several require external code, architecture-specific intrinsics, parallel runtimes, different input contracts, or materially different memory models. Every adapter must pin the upstream version and preserve license/provenance rather than copying an arbitrary implementation into the benchmark.
 
 ## Variant policy
 
