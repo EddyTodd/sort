@@ -2,14 +2,17 @@
 
 This directory is reserved for **real, reproducible benchmark artifacts**. No synthetic or guessed performance numbers belong here.
 
-Canonical run layout:
+Recommended canonical layouts:
 
 ```text
 <run-id>/manifest.json
 <run-id>/raw.csv
 <run-id>/summary.csv
-<run-id>/NOTES.md   # optional
+<run-id>/crossovers.csv       # optional derived artifact
+<run-id>/NOTES.md             # optional
 ```
+
+For a campaign containing both scalar and record experiments, use explicit names such as `scalar-raw.csv`, `records-raw.csv`, and corresponding summaries rather than mixing incompatible schemas.
 
 Before benchmark tables are promoted into the project README, they must satisfy the publication gate in `docs/research-protocol.md`.
 

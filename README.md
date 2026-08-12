@@ -1,29 +1,52 @@
 # sort
 
-A C++23 research laboratory for **theoretical and empirical study of sorting algorithms**. The repository is built to answer a more useful question than “what is the Big-O?”: which algorithm wins, by how much, under which data distribution, size, machine, compiler, and cost model—and how confident are we in that conclusion?
+A C++23 research laboratory for **theoretical and empirical study of sorting algorithms**. The project is designed to answer a more useful question than “what is the Big-O?”: which algorithm wins, by how much, under which input structure, element size, stability requirement, machine, compiler, and cost model—and how confident are we in that conclusion?
 
-The code intentionally keeps pedagogical algorithms, engineered comparison sorts, a distribution sort, and production-library baselines under one reproducible harness. Raw measurements are first-class research artifacts; headline rankings without workload and environment context are not.
+The repository treats raw measurements as research artifacts. It deliberately keeps correctness, abstract operation counts, elapsed time, data movement, statistical inference, and theoretical guarantees separate rather than collapsing them into a single leaderboard.
 
-## Current research surface
+## Research surface
 
-Milestone 2 contains 12 implementations/families:
+### Scalar experiment
+
+`sort_lab` benchmarks 12 scalar implementations/families on signed 64-bit integers:
 
 - insertion, selection, bubble, and Ciura-gap Shell sort;
 - heapsort and stable mergesort;
 - two-way Hoare quicksort and duplicate-aware three-way quicksort;
-- a custom introsort with depth-limited heap fallback and insertion cutoff;
-- stable byte-wise LSD radix sort for signed 64-bit integers;
-- `std::sort` and `std::stable_sort` as library baselines.
+- custom introsort with heap fallback and insertion cutoff;
+- stable byte-wise LSD radix sort;
+- `std::sort` and `std::stable_sort` as production-library baselines.
 
-Nine deterministic workload families cover random, sorted, reversed, few-unique, all-equal, nearly-sorted, organ-pipe, sawtooth, and pre-sorted-run structure.
+The scalar harness now exposes 15 deterministic workload families: random, sorted, reversed, few-unique, binary, all-equal, nearly-sorted, organ-pipe, sawtooth, ascending runs, descending runs, rotated sorted data, alternating extremes, staggered periodic keys, and plateau data.
 
-Run `sort_lab --list-algorithms` for machine-readable algorithm metadata including family, stability, in-place status, adaptivity, asymptotic bounds, and auxiliary-space class.
+### Record experiment
 
-## What changed in the research design
+`sort_records` studies a different problem: **sorting key/payload records when moving an element is materially more expensive than comparing its key**.
 
-The harness separates **elapsed-time measurement from operation instrumentation**. Timed implementations compile with counters disabled; a second untimed pass measures comparisons, explicit swaps, and explicit writes. This prevents the counter bookkeeping from becoming part of the performance result.
+Nine representative algorithms are instantiated over records containing a signed 64-bit key, original ordinal, and payload. Supported payload sizes are 0, 1, 3, 7, 15, and 31 64-bit words; the executable reports the actual `sizeof(record)` for each build.
 
-Each trial receives a distinct deterministic dataset. Algorithm order is independently shuffled for each trial to reduce order bias. Dataset seeds and fingerprints use project-defined deterministic functions rather than implementation-defined `std::hash`, making experiment identity portable across standard-library implementations. Every timed and instrumented result is independently verified before emission.
+Every output record carries its original ordinal. This lets the harness empirically verify:
+
+- sorted key order;
+- exact record/payload preservation;
+- whether equal-key records retained their original relative order;
+- stability guarantees for algorithms that claim them.
+
+The untimed instrumentation pass also reports explicit whole-record moves and `explicit_bytes_moved = moves × sizeof(record)` for project-controlled implementations. These are **algorithmic data-movement observables**, not hardware memory-traffic counters. Library-internal moves are left unreported rather than fabricated.
+
+## Experimental design
+
+Both executables use the same core discipline:
+
+- counter-free timed implementations and separate instrumented passes;
+- independent deterministic input per trial;
+- identical input for every algorithm within a paired trial;
+- deterministic randomized execution order;
+- portable seed derivation and input fingerprints;
+- correctness verification before any row is accepted;
+- raw CSV output rather than in-benchmark ranking.
+
+The record experiment additionally keeps the same key sequence across payload widths for a given `(pattern, n, trial)`, enabling controlled element-width studies.
 
 ## Build and validate
 
@@ -33,72 +56,90 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 
-The implementation is split into a small research harness plus header-only algorithm/workload modules so algorithms, experiment design, and CLI concerns can evolve independently without obscuring the benchmark contract.
+No hosted GitHub Actions are required. The local CTest suite covers scalar correctness, record correctness/stability/payload integrity, smoke experiments, scalar analysis, record analysis, and crossover analysis.
 
-## Run an experiment
+## Scalar benchmark
 
 ```sh
-./build/sort_lab --trials 31 --warmups 2 --sizes 64,1024,16384,262144 > raw.csv
+./build/sort_lab --trials 31 --warmups 2 \
+  --sizes 64,1024,16384,262144 > scalar.csv
 ```
 
-Target a subset:
+Target difficult structures explicitly:
 
 ```sh
 ./build/sort_lab \
-  --algorithms intro,radix_lsd,std_sort \
-  --patterns random,few_unique,nearly_sorted \
-  --sizes 1024,16384,262144 \
-  --trials 51 > raw.csv
+  --algorithms quick_hoare,quick_3way,intro,std_sort \
+  --patterns binary,organ_pipe,rotated,alternating_extremes,plateau \
+  --sizes 128,1024,8192,65536 --trials 51 > adversarial.csv
 ```
 
-Quadratic algorithms are skipped above 16,384 elements by default; change this with `--quadratic-limit N`.
+## Record-width and stability benchmark
 
-For a reproducibility bundle:
+Inspect compiled widths and algorithms:
 
 ```sh
-python3 tools/run_experiment.py ./build/sort_lab results/run-001 -- \
-  --trials 31 --warmups 2 --sizes 64,1024,16384,262144
+./build/sort_records --list-payloads
+./build/sort_records --list-algorithms
 ```
 
-This writes `raw.csv` plus `manifest.json` containing the SHA-256 of the raw data, host metadata, binary build metadata, command line, Git commit, and working-tree state.
+Run a payload-width campaign:
+
+```sh
+./build/sort_records \
+  --payload-words 0,1,3,7,15,31 \
+  --algorithms heap,merge,quick_3way,intro,radix_lsd,std_sort,std_stable_sort \
+  --patterns random,few_unique,all_equal,nearly_sorted,plateau \
+  --sizes 64,1024,16384,262144 --trials 31 > records.csv
+```
+
+`tools/run_experiment.py` can wrap either executable to capture raw CSV, SHA-256, command line, compiler/binary metadata, host metadata, Git commit, and working-tree state.
 
 ## Statistical analysis
 
+Scalar results:
+
 ```sh
-python3 tools/analyze.py results/run-001/raw.csv --baseline std_sort \
-  --bootstrap 5000 --output results/run-001/summary.csv
+python3 tools/analyze.py scalar.csv --baseline std_sort \
+  --bootstrap 5000 --output scalar-summary.csv
 ```
 
-The reducer reports median, quartiles, MAD, bootstrap 95% confidence intervals for the median, and **paired** speedup estimates against the chosen baseline. Pairing uses `(pattern, n, trial, input_hash)`, so algorithms are compared on the same generated input rather than unrelated samples.
+Record results:
 
-The analysis intentionally preserves raw observations. It does not silently remove outliers or present a universal winner.
-
-## CSV schema
-
-```text
-schema_version,algorithm,pattern,n,trial,experiment_seed,trial_seed,input_hash,execution_order,ns,comparisons,swaps,writes,verified
+```sh
+python3 tools/analyze_records.py records.csv --baseline std_sort \
+  --bootstrap 5000 --output record-summary.csv
 ```
 
-`comparisons`, `swaps`, and `writes` describe the untimed instrumentation pass. For library algorithms, only comparisons are externally observable; inaccessible library writes/swaps remain zero rather than being fabricated. Radix sort has zero comparison count by construction.
+The reducers report robust descriptive statistics and paired baseline comparisons. Milestone 3 adds **paired win rate and an exact two-sided paired sign test** alongside paired median speedup and bootstrap intervals. Statistical detectability is not treated as practical importance.
+
+Candidate crossover brackets can be extracted from either summary schema:
+
+```sh
+python3 tools/crossovers.py scalar-summary.csv --output scalar-crossovers.csv
+python3 tools/crossovers.py record-summary.csv --output record-crossovers.csv
+```
+
+The tool finds adjacent measured sizes where median paired speedup crosses 1.0, estimates the crossing on a log-size/log-speedup scale, and labels the bracket `decisive` only when the adjacent confidence intervals lie on opposite sides of 1.0. Crossover estimates remain exploratory until the bracket is sampled more densely.
 
 ## Research documentation
 
 - [`docs/theory.md`](docs/theory.md): taxonomy, complexity model, lower bounds, stability, adaptivity, memory traffic, and hardware-aware interpretation.
-- [`docs/methodology.md`](docs/methodology.md): benchmark contract and bias controls.
-- [`docs/research-protocol.md`](docs/research-protocol.md): hypotheses, experiment matrix, statistical rules, and publication gates.
+- [`docs/methodology.md`](docs/methodology.md): timing, pairing, instrumentation, record experiments, and threats to validity.
+- [`docs/research-protocol.md`](docs/research-protocol.md): hypotheses, experiment tiers, statistical rules, crossover policy, and publication gates.
+- [`docs/records.md`](docs/records.md): record-width experiment, empirical stability contract, and data-movement semantics.
+- [`docs/adversarial-workloads.md`](docs/adversarial-workloads.md): controlled workload taxonomy and what each pattern probes.
+- [`docs/statistics.md`](docs/statistics.md): paired inference, sign tests, win rates, crossover detection, and multiplicity cautions.
 - [`docs/reproducibility.md`](docs/reproducibility.md): canonical-run requirements and artifact layout.
-- [`REFERENCES.md`](REFERENCES.md): primary and foundational literature used to guide the project.
-- [`results/README.md`](results/README.md): policy for benchmark datasets; the repository does not ship invented results.
+- [`REFERENCES.md`](REFERENCES.md): primary and foundational literature.
 
 ## Scope and limitations
 
-This milestone is a rigorous **single-threaded, in-memory, signed-64-bit** benchmark. It does not yet claim to characterize records with expensive moves, indirect sorting, strings, external-memory sorting, NUMA effects, GPUs, SIMD/vectorized specialist implementations, parallel algorithms, cache/branch hardware counters, allocator behavior, or energy consumption. Those are explicit research dimensions, not hidden omissions.
+The repository now studies both scalar integer sorting and fixed-size key/payload records, but it still does **not** claim to characterize strings, variable-size objects, indirect/index sorting, external-memory sorting, NUMA, GPUs, parallel sorting, SIMD specialist implementations, allocator behavior, hardware cache/branch counters, or energy.
 
-Library implementations are treated as versioned black-box baselines. Their precise strategy can vary by standard library and release, so published results must include compiler/library metadata and must not generalize one implementation to all C++ environments.
+`explicit_bytes_moved` is not DRAM traffic, cache traffic, or a measured bandwidth quantity. Hardware-counter and allocation/peak-memory work remains a separate milestone because those measurements are platform-specific and should not be disguised as portable metrics.
 
-## Contribution standard
-
-New algorithms must add truthful theoretical metadata, pass all deterministic workload tests, preserve the timing/instrumentation separation, and document any domain constraints. New benchmark claims require raw data and a reproducibility manifest. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+No benchmark table belongs in this README until it satisfies the publication gate and is backed by raw reproducibility artifacts.
 
 ## License
 
