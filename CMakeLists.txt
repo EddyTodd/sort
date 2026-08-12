@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(sort_lab VERSION 0.4.0 LANGUAGES CXX)
+project(sort_lab VERSION 0.5.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -65,5 +65,13 @@ if(BUILD_TESTING)
              COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/analyze_alloc.py --self-test)
     add_test(NAME portfolio_self_test
              COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/portfolio.py --self-test)
+    add_test(NAME campaign_pipeline_self_test
+             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/campaign.py --self-test)
+    add_test(NAME artifact_validation_self_test
+             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_artifacts.py --self-test)
+    add_test(NAME evidence_ledger_self_test
+             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/evidence_ledger.py --self-test)
+    add_test(NAME research_report_self_test
+             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/report.py --self-test)
   endif()
 endif()
