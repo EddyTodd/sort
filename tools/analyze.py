@@ -49,6 +49,18 @@ def bootstrap_ci(values: Sequence[float], reps: int, seed: int, alpha: float = 0
     return quantile(medians, alpha / 2), quantile(medians, 1 - alpha / 2)
 
 
+def sign_test_pvalue(ratios: Sequence[float]) -> float:
+    """Exact two-sided paired sign test; ties are excluded from the binomial count."""
+    wins = sum(value > 1.0 for value in ratios)
+    losses = sum(value < 1.0 for value in ratios)
+    n = wins + losses
+    if n == 0:
+        return 1.0
+    tail = min(wins, losses)
+    probability = sum(math.comb(n, k) for k in range(tail + 1)) / (2 ** n)
+    return min(1.0, 2.0 * probability)
+
+
 @dataclass(frozen=True)
 class Row:
     algorithm: str
@@ -105,6 +117,8 @@ def summarize(rows: Sequence[Row], baseline: str, reps: int, seed: int) -> list[
             ratios = [1.0 for _ in group]
         speed_center = float(statistics.median(ratios)) if ratios else math.nan
         speed_low, speed_high = bootstrap_ci(ratios, reps, seed ^ (group_index + 0x9E3779B9)) if ratios else (math.nan, math.nan)
+        wins = sum(value > 1.0 for value in ratios)
+        ties = sum(value == 1.0 for value in ratios)
         output.append({
             "algorithm": algorithm,
             "pattern": pattern,
@@ -120,6 +134,8 @@ def summarize(rows: Sequence[Row], baseline: str, reps: int, seed: int) -> list[
             "speedup_ci95_low": speed_low,
             "speedup_ci95_high": speed_high,
             "paired_samples": len(ratios),
+            "paired_win_rate": (wins + 0.5 * ties) / len(ratios) if ratios else math.nan,
+            "paired_sign_test_p": sign_test_pvalue(ratios) if ratios else math.nan,
         })
     return output
 
@@ -128,7 +144,7 @@ def write_summary(rows: Sequence[dict[str, object]], output) -> None:
     fields = [
         "algorithm", "pattern", "n", "samples", "median_ns", "q1_ns", "q3_ns", "mad_ns",
         "median_ci95_low_ns", "median_ci95_high_ns", "median_speedup_vs_baseline",
-        "speedup_ci95_low", "speedup_ci95_high", "paired_samples",
+        "speedup_ci95_low", "speedup_ci95_high", "paired_samples", "paired_win_rate", "paired_sign_test_p",
     ]
     writer = csv.DictWriter(output, fieldnames=fields)
     writer.writeheader()
@@ -140,6 +156,7 @@ def self_test() -> int:
     assert quantile([1, 2, 3, 4], 0.5) == 2.5
     assert mad([1, 2, 3]) == 1
     assert bootstrap_ci([7], 100, 1) == (7.0, 7.0)
+    assert sign_test_pvalue([2.0, 2.0, 2.0]) == 0.25
     rows = [
         Row("a", "random", 10, 0, "x", 50, True), Row("std_sort", "random", 10, 0, "x", 100, True),
         Row("a", "random", 10, 1, "y", 100, True), Row("std_sort", "random", 10, 1, "y", 200, True),
@@ -149,7 +166,8 @@ def self_test() -> int:
     assert a["median_ns"] == 75.0
     assert a["median_speedup_vs_baseline"] == 2.0
     assert a["paired_samples"] == 2
-    print("PASS: analysis statistics and paired-baseline matching")
+    assert a["paired_win_rate"] == 1.0
+    print("PASS: analysis statistics, paired-baseline matching, and paired sign test")
     return 0
 
 

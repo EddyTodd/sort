@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run sort_lab and capture a reproducibility manifest beside the raw CSV."""
+"""Run a sort benchmark executable and capture a reproducibility manifest beside its raw CSV."""
 from __future__ import annotations
 
 import argparse
@@ -22,10 +22,10 @@ def command_output(command: list[str]) -> str | None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("binary", type=Path)
+    parser.add_argument("binary", type=Path, help="sort_lab or sort_records executable")
     parser.add_argument("output_dir", type=Path)
     parser.add_argument("benchmark_args", nargs=argparse.REMAINDER,
-                        help="arguments passed to sort_lab; prefix with --")
+                        help="arguments passed to the benchmark executable; prefix with --")
     args = parser.parse_args()
     binary = args.binary.resolve()
     if not binary.exists():
