@@ -7,12 +7,14 @@ authors:
     given-names: Eddy
 repository-code: "https://github.com/EddyTodd/sort"
 license: MIT
-version: 0.7.0
+version: 0.8.0
 keywords:
   - sorting algorithms
   - benchmarking
   - hybrid algorithms
   - sorting networks
+  - adaptive mergesort
+  - merge policies
   - algorithm engineering
   - reproducibility
   - empirical research
