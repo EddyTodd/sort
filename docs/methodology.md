@@ -2,137 +2,154 @@
 
 ## 1. Objective
 
-The benchmark produces falsifiable, reproducible evidence about sorting implementations. It separates five questions:
+The laboratory produces falsifiable, reproducible evidence about sorting implementations. It separates six questions that are often conflated:
 
-1. **Correctness:** does the implementation produce the required ordering and preserve every input element?
-2. **Abstract work:** how many observable comparisons, swaps, writes, or whole-record moves does it perform?
-3. **Semantic behavior:** does it preserve stability where required?
-4. **Machine performance:** how long does it take under a defined software/hardware environment?
-5. **Statistical evidence:** how stable is the observed difference across independent input instances?
+1. **Correctness:** does the implementation produce the required order without corrupting data?
+2. **Abstract work:** how many observable comparisons, swaps, writes, or record moves occur?
+3. **Machine performance:** how long does the implementation take in a defined environment?
+4. **Systems mechanism:** what do directly observed allocation/hardware counters say about plausible causes?
+5. **Statistical evidence:** how stable is the difference across independent paired inputs?
+6. **Decision quality:** if a cutoff or adaptive selector is tuned, does it improve held-out performance after selection overhead?
 
-No single metric answers all five.
+No single metric answers all six.
 
-## 2. Two complementary experiments
+## 2. Correctness contract
 
-`sort_lab` studies signed 64-bit scalar values. It is useful for isolating comparison/partition behavior with a small fixed element type.
+Every timed/instrumented scalar result is compared with an independently sorted reference. Record results additionally verify exact ordinal/key/payload preservation and empirical equal-key order. A correctness failure aborts the run rather than contributing a timing.
 
-`sort_records` studies fixed-size key/payload records. The comparator observes only the signed 64-bit key; the record also carries an original ordinal and deterministic payload. This makes element-width sensitivity, exact payload preservation, and empirical stability directly measurable.
+The self-tests include empty and singleton inputs, signed extremes, duplicates, deterministic generated inputs, structured/adversarial workloads, and equivalence between timed and instrumented implementations.
 
-Results from the two executables are different experimental strata and must not be pooled into one undifferentiated ranking.
+## 3. Timing versus instrumentation
 
-## 3. Correctness contract
+Operation counters must not contaminate elapsed-time measurements. Project algorithms therefore expose counter-disabled timed forms and separate counter-enabled forms.
 
-Every timed and instrumented scalar run is checked against an independently sorted reference copy. A failure aborts the experiment; an incorrect implementation never contributes a timing row.
+For one scalar/record trial:
 
-Record verification is stronger: output keys must be nondecreasing, every original ordinal must occur exactly once, and the output record at that ordinal must preserve the exact original key and payload. Algorithms declaring a stability guarantee are asserted to preserve equal-key ordinal order in deterministic tests.
+1. all timed competitors run in randomized order;
+2. optional input features are probed **after** all timed competitors;
+3. operation instrumentation runs afterward;
+4. CSV emission occurs last.
 
-Both executables test counter-disabled and counter-enabled implementations. Scalar self-tests cover all scalar workload families; record self-tests cover all record workload families and representative payload widths.
+Input generation, copying, verification, CSV output, operation counting, and feature extraction are outside each algorithm's `ns` timing. Allocations made by the sorting implementation remain inside its timed call in the canonical executable.
 
-## 4. Timing versus instrumentation
+The feature probe has its own `feature_ns`; adaptive-portfolio analysis adds that cost to the selected sort.
 
-Operation counters must not contaminate elapsed-time measurements. Each project-controlled algorithm therefore has two compile-time instantiations:
+## 4. Independent trials and pairing
 
-- **timed:** counter updates compile out;
-- **instrumented:** counter updates are enabled and the pass is not timed.
+A deterministic trial seed is derived from `(experiment_seed, pattern, n, trial)`. Every trial receives a distinct input while all competitors in that trial receive identical values.
 
-For one trial, all algorithms complete timed runs before any instrumentation pass begins. Input generation, copying, verification, hashing, CSV output, and operation-count collection are outside the timed region.
+The project-defined seed/hash functions avoid using `std::hash` or standard-library random-distribution mappings as cross-platform experiment identity. `input_hash` fingerprints the generated data.
 
-Allocations performed inside the sorting implementation remain inside elapsed time because they are part of end-to-end algorithm cost.
+Paired analyses match algorithms on the same input identity. This reduces input-difficulty variance and prevents accidental comparison of unrelated samples.
 
-## 5. Independent trials and pairing
+## 5. Execution-order bias
 
-A trial seed is deterministically derived from `(experiment_seed, pattern, n, trial)`. Each trial receives a distinct input while every algorithm in that trial receives identical values.
+Algorithm execution order is deterministically shuffled independently for each trial and recorded. Warmups are configurable and correctness-checked but not emitted.
 
-Scalar analysis pairs algorithms by `(pattern, n, trial, input_hash)`.
+Randomized order does not eliminate thermal drift, scheduler effects, SMT contention, frequency scaling, interrupts, or other host noise. Controlled campaigns should combine randomized order with affinity and host-state recording.
 
-Record experiments additionally preserve the same generated key sequence across payload widths. `key_hash` identifies the shared key sequence and `input_hash` fingerprints the full record representation. Algorithm-vs-baseline pairing occurs within the same record width.
+## 6. Workload families
 
-Seed derivation, bounded RNG mapping, workload generation, shuffling, and hashing use project-defined deterministic operations rather than implementation-defined `std::hash` behavior.
+The current deterministic workload set contains 15 controlled probes:
 
-## 6. Execution-order bias
+- `random` — bounded signed pseudo-random keys;
+- `sorted` — ascending order;
+- `reversed` — descending order;
+- `few_unique` — eight-key domain;
+- `binary` — two-key domain;
+- `all_equal` — one key;
+- `nearly_sorted` — sorted then approximately 1% random swaps;
+- `organ_pipe` — rise toward center then fall;
+- `sawtooth` — periodic 32-key structure;
+- `runs` — ascending sorted runs;
+- `descending_runs` — descending sorted runs;
+- `rotated` — sorted sequence rotated by a fixed fraction;
+- `alternating_extremes` — alternating low/high extremes;
+- `staggered` — deterministic periodic modular keys;
+- `plateau` — long equal-valued central plateau.
 
-Algorithm order is deterministically shuffled independently for every measured trial. The emitted `execution_order` column makes order effects observable.
+The workloads are probes of mechanisms, not a statistical model of all production data.
 
-Warmups are configurable and occur before measured trials for each experiment cell. Warmups are correctness-checked but not emitted.
+## 7. Scalar metrics
 
-Randomized order reduces systematic order bias but does not eliminate thermal drift, scheduling, frequency scaling, or shared-system noise. Canonical runs require additional host controls described in `reproducibility.md`.
+Canonical scalar CSV includes:
 
-## 7. Workload families
+- wall-clock `ns` around only the counter-disabled sort;
+- comparisons/swaps/writes from the untimed instrumented pass;
+- execution order, trial seed, and input fingerprint;
+- bounded input-probe metrics and probe time.
 
-The scalar and record harnesses expose the same 15 controlled probes:
+For standard-library algorithms, inaccessible internal swaps/writes remain unreported rather than estimated.
 
-- `random`: bounded high-entropy signed values;
-- `sorted`: ascending random sample;
-- `reversed`: descending random sample;
-- `few_unique`: eight keys;
-- `binary`: two keys;
-- `all_equal`: one key;
-- `nearly_sorted`: ascending sample with approximately 1% swaps;
-- `organ_pipe`: values rise toward the center and fall symmetrically;
-- `sawtooth`: periodic 32-key structure;
-- `runs`: ascending runs of length 32;
-- `descending_runs`: descending runs of length 32;
-- `rotated`: sorted data rotated by roughly one third;
-- `alternating_extremes`: alternating low/high extremes;
-- `staggered`: deterministic modular periodic sequence;
-- `plateau`: symmetric gradients surrounding a large equal-key plateau.
+## 8. Record metrics
 
-These are controlled probes, not estimates of real-world workload prevalence. See `adversarial-workloads.md`.
+Record experiments vary payload width while keeping key sequences paired across widths. Verification checks record identity and stability.
 
-## 8. Metrics
+Project-controlled record algorithms report explicit record moves and derived explicit bytes moved. This is an algorithmic data-movement count—not cache traffic, DRAM traffic, or bandwidth.
 
-### Scalar
+## 9. Cutoff and hybrid metrics
 
-`ns` is elapsed wall-clock nanoseconds around only the counter-disabled sort call. `comparisons`, `swaps`, and `writes` come from the untimed instrumentation pass.
+`sort_cutoffs` varies insertion thresholds while holding the surrounding merge/quicksort/introsort mechanism fixed. `cutoff=1` serves as the no-insertion-leaf baseline.
 
-### Records
+Parameter selection and evaluation must be disjoint. `tools/tune_cutoffs.py` uses deterministic training/held-out trials. A tuned threshold is reported with its domain; it is not generalized outside the measured compiler/type/workload/environment.
 
-The record harness reports elapsed `ns`, observable comparisons, explicit swaps, `explicit_record_moves`, `explicit_bytes_moved`, `stable_on_trial`, and exact verification status.
+## 10. Feature-based portfolio metrics
 
-`explicit_bytes_moved = explicit_record_moves × sizeof(record)` is an algorithmic movement metric for project-controlled implementations. It is **not** cache traffic or DRAM traffic. Standard-library internal moves are inaccessible and remain unreported.
+The scalar harness records only cheap, runtime-observable features: `n`, sampled inversion rate, sampled duplicate fraction, and sampled key-range width. The benchmark pattern label is forbidden as a selector feature.
 
-All operation counters are abstract observables rather than a universal CPU cost model. Cache misses, branch misses, instructions, vectorization, allocator internals, and memory bandwidth require separate measurement.
+`tools/portfolio.py` fits per-algorithm cost models on training trials and evaluates the selector on held-out trials. Report:
 
-## 9. Statistical treatment
+- best single algorithm selected on training data;
+- held-out best-single cost;
+- held-out portfolio cost including `feature_ns`;
+- portfolio speedup/regret;
+- held-out per-instance oracle as an unattainable ceiling.
 
-Raw trials are canonical; summaries are derived artifacts. The scalar and record reducers report robust descriptive summaries, paired median speedup, bootstrap intervals, paired win rate, and an exact two-sided paired sign test.
+The oracle is diagnostic; it is not an implementable algorithm.
 
-No automatic outlier removal is performed. A scientifically justified exclusion rule must be defined before inspecting the final result, and original artifacts must be retained.
+## 11. Hardware counters
 
-The sign test is intentionally magnitude-blind. It complements rather than replaces effect-size estimates. Large benchmark grids create a multiple-comparison problem; isolated unadjusted p-values are not sufficient evidence for publication claims.
+`sort_perf` uses Linux `perf_event_open` around only the sorting call. It requests cycles, instructions, branches, branch misses, cache references, and cache misses.
 
-`tools/crossovers.py` identifies adjacent measured sizes where median paired speedup crosses 1.0 and interpolates a candidate crossing in log-size/log-speedup space. This is a screening tool. Candidate brackets require denser follow-up sampling before a crossover is promoted as a conclusion.
+Events can be denied, virtualized, or multiplexed. The harness scales multiplexed events using kernel time-enabled/time-running values and marks the sample unavailable if counters cannot be obtained meaningfully. An unavailable event set is not interpreted as zero work.
 
-See `statistics.md` for interpretation rules.
+Ratios such as CPI or miss rate are mechanism diagnostics, not universal cost functions.
 
-## 10. Environment reporting
+## 12. Allocation measurement
 
-Canonical results require:
+`sort_alloc` is intentionally separate from canonical timing. It overrides ordinary C++ `new`/`delete` only in that executable and tracks allocation calls, requested bytes, peak tracked live bytes, and largest allocation around the sort.
 
-- CPU model, architecture, topology, and relevant cache information;
-- OS/kernel version;
-- compiler and standard-library version;
-- optimization flags and build type;
-- source commit and clean/dirty state;
-- executable and experiment command line;
-- seed, warmups, trial count, workload set, and payload widths where applicable;
-- frequency/turbo/affinity controls where applicable;
-- raw CSV SHA-256.
+It does not claim to intercept direct `malloc`, custom allocators, every over-aligned path, stack memory, page faults, resident-set size, or kernel allocation. Because allocator interposition changes execution, allocation runs are evidence about allocation behavior—not canonical wall-time evidence.
 
-`tools/run_experiment.py` captures a portable subset automatically. Platform-specific details that cannot be captured portably must be recorded manually rather than omitted.
+## 13. Statistical treatment
 
-## 11. Known measurement threats
+Raw trials are canonical. The bundled reducers report robust descriptive statistics, percentile-bootstrap uncertainty, paired median speedup, paired win rate, and exact paired sign tests.
 
-The current harness does not yet directly control or measure:
+No automatic outlier deletion is performed. If an external invalidation rule is scientifically justified, it must be defined before result inspection and the original artifact retained.
 
-- CPU affinity, governor/turbo state, thermals, interrupts, and context switches;
-- cache/TLB/branch hardware counters;
-- allocator call counts and peak auxiliary/resident memory;
-- timer-call overhead for very small inputs;
-- energy and power;
-- inter-process interference;
-- compiler-generated code size or instruction mix;
-- variable-size/string move costs;
-- NUMA or external-memory behavior.
+Multiple sizes/workloads/widths create families of comparisons. Formal significance claims must account for multiplicity rather than mining isolated cells.
 
-Record movement counters improve the data-movement model but do not remove these limitations. Mechanism claims must wait for direct mechanism measurements.
+## 14. Crossover treatment
+
+A crossover is not the first noisy sample where a median changes order. Candidate adjacent crossings are identified from paired speedup curves and must be sampled more densely before publication. Report a bracket/uncertainty region rather than false integer precision.
+
+## 15. Reproducibility and host state
+
+`tools/run_experiment.py` captures raw-data and binary SHA-256, exact command, Git state, host metadata, requested CPU affinity, load averages, and available Linux/macOS control information.
+
+Canonical results should additionally document anything material that cannot be captured portably: physical CPU topology, cache hierarchy, SMT state, frequency/turbo controls, thermals, compiler flags, standard-library version, and background-load policy.
+
+## 16. Threats and separate experiment models
+
+The portable core does not pretend one harness can answer every sorting question. Separate tracks are required for:
+
+- SIMD/vectorized algorithms and instruction-set-specific code;
+- parallel sorting and scalability;
+- NUMA placement;
+- GPU sorting;
+- external-memory/I/O-complexity sorting;
+- variable-size strings/objects and indirect/index sorting;
+- energy/power measurement;
+- direct memory-bandwidth/DRAM-traffic analysis.
+
+These are different experimental contracts, not hidden missing columns in the scalar CSV.
