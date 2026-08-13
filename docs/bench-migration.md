@@ -16,6 +16,8 @@ Permanent sorting-domain assets:
 - v1 scope/completeness documentation;
 - minimal examples needed to demonstrate the public API.
 
+`include/sortlab/` is now exclusively the permanent public library surface. Pre-v1 benchmark-only headers were moved to `research/include/sortlab/` and are added to include paths only when research targets are explicitly enabled.
+
 ## Moves to `EddyTodd/bench`
 
 Generic empirical infrastructure:
@@ -47,6 +49,7 @@ These are currently useful but are not permanent library API:
 - `src/sort_merge_policies.cpp`;
 - `src/sort_merge_kernels.cpp`;
 - `src/sort_adaptive_records.cpp`;
+- `research/include/sortlab/` legacy benchmark-only algorithm/workload/counter headers;
 - workload generators whose purpose is empirical treatment construction;
 - `campaigns/`;
 - `claims/` evidence state;
@@ -54,7 +57,7 @@ These are currently useful but are not permanent library API:
 - external comparison bootstrap/provenance files for pdqsort/IPS4o;
 - the majority of `tools/*.py` analysis programs.
 
-After migration, bench-side sort experiments should call the generic v1 API and use `sortlab::instrumented` observers when algorithm-level operation counts are desired.
+After migration, bench-side sort experiments should call the generic v1 API and use `sortlab::instrumented` observers when algorithm-level operation counts are desired. The legacy research-only algorithm copies can then be removed as individual experiments are ported to the v1 library surface.
 
 ## Temporary build switch
 
