@@ -40,7 +40,7 @@ ctest --preset package
 
 Because `sortlab::sortlab` is header-only, the install check is especially important: it exercises the exported INTERFACE target, permanent public/detail header lists, relocatable package/version files, and installed license without relying on the source-tree include path.
 
-Normal non-sanitized standalone CTest graphs also run `sortlab.package-consumer`. The test installs the current build into an isolated prefix and compiles a completely separate project after `find_package(sortlab 1 CONFIG REQUIRED)`. This directly detects omitted installed headers or source-tree-only include assumptions. Sanitizer configurations omit the distribution smoke; the permanent in-tree correctness tests remain sanitizer-instrumented.
+Normal non-sanitized standalone CTest graphs also run `sortlab.package-consumer`. The test installs the current build into an isolated prefix, configures and builds a completely separate project after `find_package(sortlab 1 CONFIG REQUIRED)`, and then runs that consumer's CTest suite. The downstream executable sorts a real `std::array<int, 5>` with installed `sortlab::intro_sort` and verifies the resulting order. This directly detects omitted installed headers, source-tree-only include assumptions, and runtime/template regressions in the exported header-only target. Sanitizer configurations omit the distribution smoke; the permanent in-tree correctness tests remain sanitizer-instrumented.
 
 ## Header-only development
 
