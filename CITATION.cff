@@ -1,27 +1,23 @@
 cff-version: 1.2.0
-title: "sort: a reproducible sorting-algorithm research laboratory"
-message: "If you use this software or its benchmark methodology, please cite the repository and the exact release or commit used."
+title: "sortlab: a generic C++23 sorting algorithm library and research corpus"
+message: "If you use this software or its methodology, please cite the repository and the exact release or commit used."
 type: software
 authors:
   - family-names: Todd
     given-names: Eddy
 repository-code: "https://github.com/EddyTodd/sort"
 license: MIT
-version: 0.10.0
+version: 1.0.0
 keywords:
   - sorting algorithms
-  - benchmarking
-  - hybrid algorithms
+  - C++23
+  - generic algorithms
+  - introsort
+  - timsort
+  - powersort
+  - merge sort
+  - radix sort
+  - counting sort
   - sorting networks
-  - adaptive mergesort
-  - merge policies
-  - galloping merge
-  - merge buffers
   - stable sorting
-  - record width
-  - data movement
-  - algorithm engineering
   - reproducibility
-  - empirical research
-  - external baselines
-  - C++

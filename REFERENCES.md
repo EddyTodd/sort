@@ -34,6 +34,14 @@ The project uses primary literature, standards contracts, and production source 
 
 17. ISO C++ working draft, sorting clauses `[alg.sort]` and `[stable.sort]`: `https://eel.is/c++draft/alg.sort`.
 
+## v1 library mechanism references
+
+18. Tim Peters, **`listsort.txt` / TimSort design notes**, CPython source history. The v1 `timsort` follows the stable natural-run + stack-collapse + adaptive galloping design family but is an independent C++23 implementation.
+19. OpenJDK, **`java.util.TimSort`**, production reference for repaired run-stack invariants and dynamic `minGallop` behavior.
+20. Peter M. McIlroy, Keith Bostic, and M. Douglas McIlroy, **“Engineering Radix Sort,”** *Computing Systems* 6(1), 5–27, 1993. Primary reference for American-flag-style in-place MSD radix distribution.
+21. F. P. Preparata, **“A Fast Stable Sorting Algorithm with Absolutely Minimum Storage,”** *Theoretical Computer Science* 1(2), 185–190, 1975. DOI `10.1016/0304-3975(75)90019-5`.
+22. Christian Siebert, **“Simple in-place yet comparison-optimal Mergesort,”** arXiv:`2509.24540`, 2025. Modern context for practical stable in-place merge sorting via rotation/co-ranking ideas; cited for the low-extra-memory mechanism family rather than as source code provenance.
+
 ## Citation and provenance policy
 
 Production-source thresholds are evidence that hybridization is practical engineering, not universal constants for this repository. External baselines must pin upstream version/commit and preserve license/provenance. Project implementations are original unless a file explicitly states otherwise.

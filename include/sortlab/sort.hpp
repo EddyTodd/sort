@@ -1,0 +1,9 @@
+#pragma once
+#include "sortlab/version.hpp"
+#include "sortlab/instrumentation.hpp"
+#include "sortlab/comparison.hpp"
+#include "sortlab/adaptive.hpp"
+#include "sortlab/stable_inplace.hpp"
+#include "sortlab/distribution.hpp"
+#include "sortlab/tiny.hpp"
+#include "sortlab/metadata.hpp"

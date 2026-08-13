@@ -1,232 +1,119 @@
-# sort
+# sortlab
 
-A C++23 laboratory for the **theoretical, empirical, and systems-level study of sorting algorithms**.
+`sortlab` is a C++23 library of sequential in-memory sorting algorithms, plus a retained research harness that will be migrated to [`EddyTodd/bench`](https://github.com/EddyTodd/bench).
 
-The project does not ask only which algorithm has the best asymptotic bound. It asks which implementation wins, by how much, under which input structure, element width, stability requirement, compiler, standard library, and microarchitecture—and what mechanism plausibly explains that result.
+Version 1 separates those concerns deliberately:
 
-Raw measurements are first-class research artifacts. Correctness, asymptotic theory, operation counts, elapsed time, record movement, allocation behavior, hardware counters, statistical uncertainty, and tuning decisions are kept separate rather than collapsed into a single leaderboard.
+- **permanent library:** generic sorting algorithms, correctness contracts, metadata, instrumentation hooks, CMake package;
+- **research compatibility layer:** benchmark executables, workloads, campaign/statistics/provenance tools, and external comparison adapters retained temporarily so earlier research remains reproducible.
 
-## Research surface
+The installed package contains only the permanent library headers. Benchmark-only headers and executables are not part of the installed API.
 
-### Scalar algorithms
+## Use the library
 
-`sort_lab` currently exposes **23 algorithms and scientifically material variants** over signed 64-bit integers:
+```cpp
+#include <sortlab/sort.hpp>
 
-- insertion: linear insertion and binary insertion;
-- exchange/selection: selection, bubble, and comb sort;
-- Shell: Ciura-gap and Pratt-gap variants;
-- heap: project heapsort and a standard-library heap baseline;
-- merge: top-down, bottom-up, natural/run-adaptive, and merge+insertion;
-- quicksort: two-way Hoare, duplicate-aware three-way, median-of-three, dual-pivot, and quicksort+insertion;
-- hybrid: introsort plus parameterized insertion-cutoff families;
-- distribution: stable 8-bit LSD radix and an 11-bit-digit LSD radix variant;
-- library: `std::sort` and `std::stable_sort`.
+#include <vector>
 
-Run `sort_lab --list-algorithms` for machine-readable metadata covering family, stability, in-place status, adaptivity, asymptotic bounds, and auxiliary space. [`docs/algorithm-catalog.md`](docs/algorithm-catalog.md) explains the coverage policy and external state-of-the-art comparison tracks.
-
-### Controlled workloads
-
-The scalar and record laboratories expose 15 deterministic workload families: random, sorted, reversed, few-unique, binary, all-equal, nearly-sorted, organ-pipe, sawtooth, ascending runs, descending runs, rotated sorted data, alternating extremes, staggered periodic keys, and plateau data.
-
-These are controlled probes, not claims about the frequency of real-world workloads. Their purpose is to expose adaptivity, duplicate handling, partition behavior, run exploitation, and adversarial sensitivity.
-
-### Record width and stability
-
-`sort_records` benchmarks nine representative algorithms over fixed-size key/payload records. Payload widths span 0, 1, 3, 7, 15, and 31 64-bit words; the executable records the actual ABI `sizeof(record)`.
-
-Every record retains its original ordinal and deterministic payload, allowing the harness to verify:
-
-- nondecreasing key order;
-- exact record/payload preservation;
-- empirical stability on equal keys;
-- stability guarantees for algorithms that claim them.
-
-Project-controlled algorithms also expose explicit record moves and `explicit_bytes_moved`. These are algorithmic observables, not estimates of cache or DRAM traffic.
-
-## Hybrid and cutoff research
-
-A central research question is whether a practical sorter should combine mechanisms rather than use one algorithm everywhere.
-
-`sort_cutoffs` treats the insertion-sort base-case threshold as an experimental variable for:
-
-- merge sort + insertion leaves;
-- median-of-three quicksort + insertion leaves;
-- introsort + insertion leaves.
-
-```sh
-./build/sort_cutoffs \
-  --cutoffs 1,4,8,12,16,20,24,32,48,64,96,128 \
-  --sizes 8,12,16,24,32,48,64,96,128,192,256,512,1024,2048,4096,8192 \
-  --patterns random,sorted,few_unique,nearly_sorted,runs \
-  --trials 51 > cutoffs.csv
-
-python3 tools/tune_cutoffs.py cutoffs.csv --output cutoff-summary.csv
+std::vector<int> values{5, 1, 4, 1, 3};
+sortlab::intro_sort(values);
 ```
 
-The tuning tool selects a cutoff on training trials and evaluates it on a deterministic held-out split. The repository does **not** assume one folklore threshold is universally optimal.
+Comparison algorithms accept random-access iterators/ranges and, where applicable, a comparator and projection:
 
-`tools/claim_matrix.py` evaluates preregistered paired claims including insertion-vs-merge crossover, linear-vs-binary insertion, hybrid-vs-pure merge/quicksort, two-way-vs-three-way quicksort, radix digit width, and run-adaptive-vs-fixed merge.
+```cpp
+struct row {
+  int key;
+  std::string payload;
+};
 
-See [`docs/hybrid-research.md`](docs/hybrid-research.md).
-
-## Tiny-sort kernels and hybrid leaves
-
-The next question is stricter than “what insertion cutoff is best?”: **is insertion sort actually the best leaf algorithm?**
-
-`sort_tiny` directly compares linear insertion, binary insertion, a padded power-of-two bitonic sorting network, and `std::sort` for every small-array treatment up to 32 elements. The bitonic implementation has a data-oblivious comparator topology; the project does not assume that implies branch-free machine code on every compiler/ISA.
-
-```sh
-./build/sort_tiny \
-  --sizes 2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,24,32 \
-  --patterns random,sorted,reversed,few_unique,nearly_sorted \
-  --trials 101 > tiny.csv
-
-python3 tools/analyze_tiny.py tiny.csv \
-  --baseline insertion --bootstrap 5000 --output tiny-summary.csv
+std::vector<row> rows = /* ... */;
+sortlab::timsort(rows, std::ranges::less{}, &row::key);
 ```
 
-`sort_leaf_hybrids` then jointly varies **parent family × leaf kernel × cutoff** for merge, median-of-three quicksort, and introsort:
+The ordinary API has no benchmark state. Optional instrumentation uses the same underlying implementations:
 
-```sh
-./build/sort_leaf_hybrids \
-  --families merge,quick,intro \
-  --kernels insertion,binary_insertion,bitonic_network \
-  --cutoffs 4,8,12,16,20,24,28,32 \
-  --patterns random,sorted,reversed,few_unique,nearly_sorted,runs \
-  --sizes 64,128,256,512,1024,4096,16384 \
-  --trials 31 > leaf-hybrids.csv
-
-python3 tools/tune_leaf_kernels.py leaf-hybrids.csv \
-  --output leaf-tuning.csv
+```cpp
+sortlab::operation_counts counts;
+sortlab::counting_observer observer(counts);
+sortlab::instrumented::merge_sort(values.begin(), values.end(), observer);
 ```
 
-The joint tuner selects `(kernel, cutoff)` on training trials and evaluates it held-out against the **best insertion-only cutoff selected from the same training observations**. This prevents a sorting network from appearing superior merely because insertion was compared with a poor fixed folklore threshold.
+See [`docs/library-api.md`](docs/library-api.md) for iterator/range requirements, projections, move-only support, instrumentation semantics, and distribution-sort domain constraints.
 
-`campaigns/tiny-kernels-v1.json` is the Tier-2 evidence contract for H12-H13. See [`docs/tiny-kernel-research.md`](docs/tiny-kernel-research.md).
+## v1 algorithm catalog
 
-## Adaptive stable merge scheduling
+### Insertion / exchange / selection
 
-A stable adaptive mergesort is itself a composition of decisions. `sort_merge_policies` isolates two of them as independent experimental factors:
+- `insertion_sort` — stable, adaptive, in-place;
+- `binary_insertion_sort` — stable; fewer comparison opportunities at the cost of the same quadratic movement bound;
+- `selection_sort` — in-place selection baseline;
+- `bubble_sort` — stable adaptive exchange baseline;
+- `comb_sort` — gap-based exchange treatment.
 
-- **merge schedule:** adjacent pairwise rounds, repaired TimSort stack policy, Powersort;
-- **run extension:** none, classic fixed TimSort-style minrun, balanced variable minrun.
+### Shell sorting
 
-All **9 combinations** share the same monotone-run detector, stable binary extension, and stable two-run merge kernel. That prevents a faster galloping merge or a different temporary-buffer strategy from being mistaken for a better merge schedule.
+- `shell_ciura_sort`;
+- `shell_pratt_sort`.
 
-The dedicated workload suite reuses ordinary inputs and adds controlled run geometries such as equal runs, alternating long/short runs, Fibonacci-like lengths, power-skewed lengths, and alternating run directions.
+### Heap sorting
 
-```sh
-./build/sort_merge_policies \
-  --policies pairwise,timsort_stack,powersort \
-  --minruns none,classic,balanced \
-  --patterns random,sorted,nearly_sorted,run_long_short,run_power_skew,run_fibonacci \
-  --sizes 32,64,128,315,1024,4096,16384,65536 \
-  --trials 51 > merge-policies.csv
+- `heap_sort` — in-place `O(n log n)` worst case.
 
-python3 tools/analyze_merge_policies.py merge-policies.csv \
-  --baseline-policy powersort --baseline-minrun balanced \
-  --bootstrap 5000 --output merge-policy-summary.csv
+### Merge families
+
+- `merge_sort` — top-down stable merge sort;
+- `merge_bottom_up_sort` — iterative stable merge sort;
+- `natural_merge_sort` — detects monotone input runs;
+- `merge_insertion_sort` — configurable insertion leaves;
+- `stable_inplace_merge_sort` — stable low-extra-memory divide/rotate merge family with `O(log n)` stack data and `O(n log^2 n)` worst-case time.
+
+### Quicksort / hybrid partition families
+
+- `quick_hoare_sort`;
+- `quick_3way_sort` — duplicate-aware three-way partitioning;
+- `quick_median3_sort`;
+- `dual_pivot_sort`;
+- `quick_insertion_sort` — configurable insertion leaves;
+- `intro_sort` — median-of-three partitioning, insertion leaves, heap fallback for `O(n log n)` worst-case time.
+
+The quicksort-family implementations snapshot pivots and therefore require copy-constructible value types. Other generic algorithms support move-only types when their standard iterator/permutation requirements are satisfied.
+
+### Production adaptive stable merges
+
+- `timsort` — strict descending-run reversal, stable binary run extension, repaired TimSort stack-collapse invariants, smaller-run buffering, forward/backward stable merging, exponential/binary galloping, and **dynamic `min_gallop` adaptation**;
+- `powersort` — the same stable adaptive merge kernel under Powersort node-power scheduling.
+
+These are permanent algorithms, not only benchmark treatments. The legacy research executables still expose fixed policy/threshold experiments for historical studies, but they are separate from the v1 API.
+
+### Distribution sorting
+
+Integral types only:
+
+- `radix_lsd_sort` — stable LSD radix; configurable digit width;
+- `radix_msd_sort` — in-place American-flag-style MSD radix permutation;
+- `counting_sort` — stable bounded-domain counting sort; rejects domains larger than the caller-supplied `max_domain` instead of allocating unbounded memory.
+
+Signed integers are ordered correctly across their full representable range by mapping the sign bit into monotonic unsigned key space.
+
+### Tiny / data-oblivious sorting
+
+- `bitonic_sort` — generic bitonic network family, including non-power-of-two sizes via the greatest-power-of-two merge construction.
+
+The older padded-bitonic benchmark treatment remains in the research layer. v1 deliberately does **not** claim an optimal-comparator small-N network catalog; specialized optimal/ISA-specific networks are implementation-optimization research, not a missing sorting mechanism. See [`V1_COMPLETENESS.md`](V1_COMPLETENESS.md).
+
+## Stability and records
+
+Stable v1 algorithms are tested with custom record types carrying duplicate keys, original ordinals, and nontrivial payloads. Projections replace the old need for separate record-specific algorithm implementations:
+
+```cpp
+sortlab::powersort(records, std::ranges::less{}, &record::key);
 ```
 
-The instrumented path reports raw/effective run counts, comparisons, writes, weighted scheduled merge cost, pending-run depth, and run entropy. These structural metrics are **not** substituted for elapsed time.
+Equal-key order is preserved by insertion, binary insertion, bubble, merge variants, natural merge, stable in-place merge, TimSort, Powersort, and stable LSD/counting distribution where the domain model applies.
 
-A separate theory tool compares the scheduling policies with the exact optimal alphabetic merge cost for up to 64 runs:
-
-```sh
-python3 tools/merge_policy_model.py \
-  --suite models/merge-policy-sequences-v1.json
-```
-
-This distinguishes “better merge tree” from “faster implementation.” `campaigns/merge-policies-v1.json` is the Tier-2 evidence contract for H14-H15. See [`docs/adaptive-merge-research.md`](docs/adaptive-merge-research.md).
-
-## Adaptive merge kernels
-
-After fixing run scheduling, the repository can ask a different question: **how should two selected adjacent runs actually be merged?** `sort_merge_kernels` freezes Powersort scheduling and balanced variable minrun, then varies two kernel mechanisms independently:
-
-- **buffer policy:** copy both runs versus copy only the smaller run;
-- **search policy:** linear merging versus exponential-plus-binary galloping.
-
-The smaller-run treatment merges forward when the left run is buffered and backward when the right run is buffered. Its requested workspace for a merge of lengths `a` and `b` is `min(a,b)`, which is at most half of the merged run size. That is a structural memory result, not automatically a wall-time or cache result.
-
-```sh
-./build/sort_merge_kernels \
-  --gallop-thresholds 4,7,12,16 \
-  --patterns random,nearly_sorted,run_long_short,run_power_skew,run_fibonacci \
-  --sizes 64,128,315,1024,4096,16384,65536 \
-  --trials 51 > merge-kernels.csv
-
-python3 tools/analyze_merge_kernels.py merge-kernels.csv \
-  --baseline smaller_gallop_7 --bootstrap 5000 \
-  --output merge-kernel-summary.csv
-
-python3 tools/tune_gallop.py merge-kernels.csv \
-  --output gallop-heldout.csv
-```
-
-Galloping begins after a fixed consecutive-win threshold, uses exponential search to bracket the boundary, then binary search to finish it. `tools/tune_gallop.py` selects the threshold only on training trials and evaluates it held-out against linear merging under the same buffer policy. The repository therefore does not assume that a historical threshold such as 7 is universally optimal.
-
-The instrumented pass reports requested/actual temporary workspace, elements copied into workspace, comparisons/writes, gallop entries, and elements consumed through gallop phases. `campaigns/merge-kernels-v1.json` is the Tier-2 evidence contract for H16-H17. See [`docs/adaptive-merge-kernels.md`](docs/adaptive-merge-kernels.md).
-
-## Experimental algorithm portfolios
-
-The scalar benchmark records a small, deterministic input-feature probe **after all timed competitors have run**, preventing the probe from warming a later timed sort. It records feature-extraction time plus sampled disorder, duplicate density, and key-range width.
-
-`tools/portfolio.py` uses only observable features and `n`—never the benchmark's hidden workload label—to fit per-algorithm cost models on training trials and evaluate the selector on held-out trials. Portfolio cost includes the measured feature-probe overhead.
-
-```sh
-./build/sort_lab \
-  --algorithms intro,natural_merge,quick_3way,radix_lsd_11,std_sort \
-  --patterns random,sorted,few_unique,nearly_sorted,runs,plateau \
-  --sizes 16,32,64,128,256,512,1024,4096,16384 \
-  --trials 60 > portfolio.csv
-
-python3 tools/portfolio.py portfolio.csv \
-  --algorithms intro,natural_merge,quick_3way,radix_lsd_11,std_sort \
-  --output portfolio-summary.csv
-```
-
-The output compares the held-out selector against the best single training-selected algorithm and the unattainable held-out per-instance oracle. This provides a disciplined way to ask whether a portfolio can beat a fixed algorithm without leaking generator labels into runtime decisions.
-
-Dedicated research tracks are not silently folded into the selector. A future unified portfolio that includes adaptive-merge, tiny-kernel, and external treatments will use a new compatible schema and frozen campaign after those candidates have independent evidence.
-
-## Hardware counters
-
-`sort_perf` uses Linux `perf_event_open` for:
-
-- cycles;
-- retired instructions;
-- branch instructions and branch misses;
-- cache references and cache misses.
-
-Wall time is collected in a counter-free pass. Each hardware event is then measured in its own **fresh sort pass over the identical input**, avoiding the requirement that all six events fit simultaneously in the CPU's programmable-counter budget.
-
-```sh
-./build/sort_perf --cpu 2 \
-  --algorithms intro,merge_insertion_24,dual_pivot,radix_lsd_11,std_sort \
-  --patterns random,few_unique,nearly_sorted \
-  --sizes 1024,16384,262144 --trials 31 > perf.csv
-
-python3 tools/analyze_perf.py perf.csv --output perf-summary.csv
-```
-
-The harness fails closed when counters are unavailable or unusable. Unsupported/denied events are marked unavailable; zeros are never silently presented as measurements. On non-Linux systems the rest of the repository remains usable.
-
-## Allocation behavior
-
-`sort_alloc` is a separate allocation-only executable that tracks ordinary C++ `new`/`delete` around the sort call. It reports allocation calls, requested bytes, peak live requested bytes, largest allocation, and tracked bytes still live when measurement ends.
-
-```sh
-./build/sort_alloc \
-  --algorithms heap,merge,natural_merge,radix_lsd,std_sort,std_stable_sort \
-  --patterns random,nearly_sorted --sizes 1024,16384,262144 \
-  --trials 11 > alloc.csv
-
-python3 tools/analyze_alloc.py alloc.csv --output alloc-summary.csv
-```
-
-The allocation harness is intentionally separate from canonical timing because replacing the allocator changes the measured program.
-
-## Build and validate
+## Build, test, install
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -234,63 +121,87 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 
-Optional sanitizer validation:
+To build only the permanent library and v1 correctness suite:
 
 ```sh
-cmake -S . -B build-san -DSORTLAB_ENABLE_SANITIZERS=ON
+cmake -S . -B build-core \
+  -DSORTLAB_BUILD_RESEARCH_TOOLS=OFF \
+  -DCMAKE_BUILD_TYPE=Release
+cmake --build build-core -j
+ctest --test-dir build-core --output-on-failure
+```
+
+Sanitizers:
+
+```sh
+cmake -S . -B build-san \
+  -DSORTLAB_BUILD_RESEARCH_TOOLS=OFF \
+  -DSORTLAB_ENABLE_SANITIZERS=ON \
+  -DCMAKE_BUILD_TYPE=Debug
 cmake --build build-san -j
 ctest --test-dir build-san --output-on-failure
 ```
 
-The local test suite covers scalar correctness, record correctness/stability/payload integrity, insertion cutoffs, tiny-kernel correctness, hybrid leaf treatments, adaptive merge scheduling/minrun treatments, adaptive merge buffer/gallop treatments, hardware-counter behavior, allocation accounting, robust statistical reducers, exact merge-policy models, crossover detection, held-out cutoff/kernel/gallop tuning, claim definitions, and held-out portfolio evaluation.
-
-## Reproducibility bundle
-
-`tools/run_experiment.py` wraps any benchmark executable and captures the raw CSV plus a manifest containing raw-data SHA-256, binary SHA-256, command line, Git state, host metadata, requested affinity, and available Linux/macOS control state.
+Install and consume with CMake:
 
 ```sh
-python3 tools/run_experiment.py --cpu 2 --settle-ms 1000 \
-  ./build/sort_lab results/canonical-001 -- \
-  --trials 51 --warmups 2 --sizes 64,1024,16384,262144
+cmake --install build-core --prefix /your/prefix
 ```
 
-The wrapper records host state; it does not silently change governors, turbo, thermal policy, or OS security settings.
-
-## Statistical analysis
-
-Scalar and record reducers report robust descriptive statistics, bootstrap uncertainty, paired speedup, paired win rate, and exact paired sign tests. `tools/crossovers.py` identifies candidate adjacent size brackets where paired speedup crosses 1.0 and distinguishes exploratory crossings from brackets whose endpoint intervals lie on opposite sides of parity.
-
-```sh
-python3 tools/analyze.py scalar.csv --baseline std_sort --bootstrap 5000 --output summary.csv
-python3 tools/crossovers.py summary.csv --output crossovers.csv
+```cmake
+find_package(sortlab 1 CONFIG REQUIRED)
+target_link_libraries(my_target PRIVATE sortlab::sortlab)
 ```
 
-Raw trials remain canonical. No automatic outlier deletion is performed.
+The package is header-only and has no required third-party runtime dependency.
 
-## Research documentation
+## Correctness contract
 
-- [`docs/theory.md`](docs/theory.md): lower bounds, taxonomy, stability, adaptivity, memory traffic, and hardware-aware interpretation.
-- [`docs/algorithm-catalog.md`](docs/algorithm-catalog.md): implemented mechanisms, variant policy, and external comparison tracks.
-- [`docs/hybrid-research.md`](docs/hybrid-research.md): insertion cutoffs, hybrid hypotheses, held-out tuning, and portfolio research.
-- [`docs/tiny-kernel-research.md`](docs/tiny-kernel-research.md): sorting networks, tiny-array comparisons, H12-H13, and joint leaf-kernel/cutoff tuning.
-- [`docs/adaptive-merge-research.md`](docs/adaptive-merge-research.md): run detection, minrun policies, TimSort/Powersort scheduling, exact merge-cost models, H14-H15, and evidence boundaries.
-- [`docs/adaptive-merge-kernels.md`](docs/adaptive-merge-kernels.md): full/smaller-run buffering, galloping, held-out threshold tuning, H16-H17, and stability/evidence boundaries.
-- [`docs/methodology.md`](docs/methodology.md): benchmark contract and threats to validity.
-- [`docs/research-protocol.md`](docs/research-protocol.md): hypotheses, experiment tiers, statistical rules, and publication gates.
-- [`docs/records.md`](docs/records.md): record-width and empirical-stability contract.
-- [`docs/adversarial-workloads.md`](docs/adversarial-workloads.md): workload taxonomy.
-- [`docs/statistics.md`](docs/statistics.md): paired inference and crossover interpretation.
-- [`docs/hardware-measurement.md`](docs/hardware-measurement.md): hardware counters, allocation semantics, affinity, and mechanism-claim gates.
-- [`docs/reproducibility.md`](docs/reproducibility.md): canonical-run artifact requirements.
-- [`docs/external-baselines.md`](docs/external-baselines.md): pinned external implementation provenance and comparison contract.
-- [`TECHNICAL_DEBT.md`](TECHNICAL_DEBT.md): explicit known limitations, impact, and remediation paths.
-- [`REFERENCES.md`](REFERENCES.md): foundational, primary, and production-source references.
+`sortlab_v1_tests` validates, among other cases:
 
-## What “complete” means here
+- empty, singleton, tiny, sorted, reverse-sorted, all-equal, duplicate-heavy, and signed-extreme data;
+- randomized duplicate-heavy cases across every permanent comparison sorter;
+- custom descending comparators;
+- custom record projections;
+- empirical stability for every comparison algorithm that declares stability;
+- move-only types for algorithms whose API permits them;
+- pathological/unbalanced TimSort and Powersort run geometries;
+- forward/backward adaptive merging and dynamic gallop activation;
+- LSD/MSD radix digit-width and signed-boundary behavior;
+- bounded counting-sort rejection behavior;
+- metadata uniqueness/completeness;
+- optional instrumentation without changing the normal API.
 
-The portable core is a mature **single-threaded, in-memory sorting research laboratory**, not an assertion that every known sorter or machine model has already been exhausted. Architecture-specific SIMD sorters, parallel algorithms, GPUs, external-memory sorting, NUMA studies, variable-size strings/objects, production-specific adaptive gallop policies, and more third-party state-of-the-art implementations remain separate experiment models. Their current status is explicit in [`TECHNICAL_DEBT.md`](TECHNICAL_DEBT.md).
+The library test target compiles with strong warnings and `-Werror` on GCC/Clang builds. ASan/UBSan can be enabled locally with `SORTLAB_ENABLE_SANITIZERS`.
 
-No performance table belongs in this README until it satisfies the publication gate with raw data, a manifest, uncertainty, and replication.
+## Scope and non-goals
+
+v1 is intentionally **sequential, in-memory, CPU sorting**.
+
+Not v1 blockers:
+
+- parallel sorting;
+- GPU sorting;
+- NUMA-specific placement/scaling;
+- distributed sorting;
+- external-memory/out-of-core sorting;
+- architecture-specific SIMD sorting;
+- variable-size string/blob specialization;
+- exhaustive optimal sorting-network catalogs.
+
+Those require different execution, memory, or evidence contracts and remain future research domains.
+
+## Research material and `bench` migration
+
+The repository still contains substantial empirical infrastructure from pre-v1 work: `campaigns/`, `claims/`, most `tools/*.py`, workload generators, `sort_*` benchmark executables, performance/allocation counters, result schemas, and external comparison adapters. They are retained temporarily for continuity, but are **not** part of the installed package.
+
+The intended migration boundary is documented in [`docs/bench-migration.md`](docs/bench-migration.md). Theoretical material, algorithm implementations, correctness tests, API documentation, algorithm metadata, and sorting-specific references remain here.
+
+## Completeness
+
+[`V1_COMPLETENESS.md`](V1_COMPLETENESS.md) records the v1 completion decision, representative mechanism audit, deliberate deferrals, and the distinction between core blockers and future research.
+
+**Core blockers at v1: none known.**
 
 ## License
 
