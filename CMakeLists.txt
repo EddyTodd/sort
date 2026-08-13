@@ -125,6 +125,13 @@ if(BUILD_TESTING AND SORTLAB_BUILD_TESTS)
   sortlab_apply_sanitizers(sortlab_adaptive_option_contract)
   add_test(NAME sortlab_adaptive_option_contract COMMAND sortlab_adaptive_option_contract)
 
+  if(NOT SORTLAB_ENABLE_SANITIZERS)
+    include(cmake/PackageConsumerTest.cmake)
+    register_package_consumer_test(
+      sortlab.package-consumer
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/package-consumer")
+  endif()
+
   if(SORTLAB_BUILD_RESEARCH_TOOLS)
     add_test(NAME sort_self_test COMMAND sort_lab --self-test)
     add_test(NAME sort_smoke_benchmark COMMAND sort_lab --trials 2 --warmups 0 --sizes 0,1,32,257 --patterns random,binary,all_equal,organ_pipe,rotated,plateau --algorithms insertion,binary_insertion,heap,natural_merge,merge_insertion_24,quick_3way,dual_pivot,intro,radix_lsd_11,std_sort)

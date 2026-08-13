@@ -40,6 +40,8 @@ ctest --preset package
 
 Because `sortlab::sortlab` is header-only, the install check is especially important: it exercises the exported INTERFACE target, permanent public/detail header lists, relocatable package/version files, and installed license without relying on the source-tree include path.
 
+Normal non-sanitized standalone CTest graphs also run `sortlab.package-consumer`. The test installs the current build into an isolated prefix and compiles a completely separate project after `find_package(sortlab 1 CONFIG REQUIRED)`. This directly detects omitted installed headers or source-tree-only include assumptions. Sanitizer configurations omit the distribution smoke; the permanent in-tree correctness tests remain sanitizer-instrumented.
+
 ## Header-only development
 
 `sortlab::sortlab` is an `INTERFACE` library, so the normal build graph primarily compiles deterministic correctness/contract tests. This is intentional: historical benchmark executables live under `research/apps/` and are disabled by default.
