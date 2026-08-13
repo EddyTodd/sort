@@ -69,27 +69,24 @@ def read_rows(paths: Iterable[Path]) -> list[Row]:
 
 
 def tune(rows: Sequence[Row]) -> list[dict[str, object]]:
+    Cell = tuple[str, str, str, str, int, int]
     train: dict[tuple[str, str, str, str, int, int, int], list[float]] = defaultdict(list)
     heldout_linear: dict[tuple[str, str, str, str, int, int, int, str], Row] = {}
-    heldout_gallop: dict[
-        tuple[str, str, str, str, int, int, int, int, str], Row
-    ] = {}
-    record_bytes_by_cell: dict[tuple[str, str, str, str, int, int], int] = {}
+    heldout_gallop: dict[tuple[str, str, str, str, int, int, int], list[Row]] = defaultdict(list)
+    record_bytes_by_cell: dict[Cell, int] = {}
 
     for row in rows:
-        cell = (row.merge_policy, row.minrun_policy, row.buffer_policy,
-                row.pattern, row.n, row.payload_words)
+        cell: Cell = (row.merge_policy, row.minrun_policy, row.buffer_policy,
+                      row.pattern, row.n, row.payload_words)
         record_bytes_by_cell[cell] = row.record_bytes
         if row.trial % 3 != 2:
             if row.search_policy == "gallop":
                 train[cell + (row.gallop_threshold,)].append(row.ns)
             continue
-        identity = cell + (row.trial, row.input_hash)
         if row.search_policy == "linear":
-            heldout_linear[identity] = row
+            heldout_linear[cell + (row.trial, row.input_hash)] = row
         elif row.search_policy == "gallop":
-            heldout_gallop[cell + (row.gallop_threshold, row.trial,
-                                    row.input_hash)] = row
+            heldout_gallop[cell + (row.gallop_threshold,)].append(row)
 
     cells = sorted({key[:-1] for key in train})
     output: list[dict[str, object]] = []
@@ -106,12 +103,8 @@ def tune(rows: Sequence[Row]) -> list[dict[str, object]]:
         ratios: list[float] = []
         gallop_ns: list[float] = []
         linear_ns: list[float] = []
-        prefix = cell + (selected_threshold,)
-        for key, row in heldout_gallop.items():
-            if key[:7] != prefix:
-                continue
-            identity = cell + (row.trial, row.input_hash)
-            base = heldout_linear.get(identity)
+        for row in heldout_gallop.get(cell + (selected_threshold,), []):
+            base = heldout_linear.get(cell + (row.trial, row.input_hash))
             if base is None or row.ns <= 0:
                 continue
             ratios.append(base.ns / row.ns)
