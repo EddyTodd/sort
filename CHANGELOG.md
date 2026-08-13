@@ -8,6 +8,7 @@ All notable changes to `sortlab` are recorded here. The installed header-only C+
 
 - Standard `dev`, `release`, `sanitize`, and checkout-local `package` CMake presets.
 - External installed-package consumer smoke testing.
+- Installed-package smoke physically relocates the complete install tree before downstream configure/build/runtime execution, catching absolute-prefix leaks.
 - Installed-package smoke now executes downstream `sortlab::intro_sort` on real data after install/configure/build.
 - Target-owned 18-header public API file set and build-time independent compilation of every installed header.
 - Dependency-free release metadata verification across CMake, the public version header, citation metadata, and changelog history.
