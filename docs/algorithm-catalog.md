@@ -79,7 +79,27 @@ This track has its own `merge-kernels-v1` Tier-2 contract and H16-H17 evidence r
 
 ## Implemented record algorithms
 
-The record-width laboratory intentionally uses a smaller representative set: insertion, heap, stable merge, two-way quicksort, three-way quicksort, introsort, stable radix, `std::sort`, and `std::stable_sort`. The goal is factorial control over payload width and stability, not duplicating every scalar variant for every record type.
+The general record-width laboratory intentionally uses a smaller representative set: insertion, heap, stable merge, two-way quicksort, three-way quicksort, introsort, stable radix, `std::sort`, and `std::stable_sort`. The goal is factorial control over payload width and stability, not duplicating every scalar variant for every record type.
+
+### Adaptive record composition track
+
+`sort_adaptive_records` reuses the same ordinal-carrying `Record<Words>` representation, but exposes adaptive stable mergesort as a composition of independently selectable mechanisms:
+
+- scheduler: pairwise exploratory control, repaired TimSort stack, Powersort;
+- minrun: none, classic, balanced;
+- merge buffer: full or smaller-run;
+- merge search: linear or exponential-plus-binary galloping;
+- gallop threshold: parameterized;
+- payload width: `0,1,3,7,15,31` words.
+
+Every comparison is by `key` only. Original ordinals and deterministic payloads are retained solely for integrity/stability verification. The adaptive record benchmark records explicit record moves, explicit moved bytes, requested temporary records/bytes, actual reusable-vector capacity, and gallop behavior.
+
+The canonical `adaptive-records-v1` campaign is deliberately split rather than taking one huge cross-product:
+
+1. repaired TimSort-stack vs Powersort × none/classic/balanced minrun with full/linear merging fixed;
+2. full vs smaller buffering × linear/gallop thresholds with Powersort/balanced fixed.
+
+The naive pairwise scheduler remains an implementation/correctness control but is excluded from canonical record-policy evidence. See `docs/adaptive-merge-records.md`.
 
 ## Provenance-pinned external track
 
@@ -120,6 +140,7 @@ A variant gets its own algorithm name when it changes a scientifically material 
 - minrun/run-extension policy;
 - temporary-buffer strategy;
 - merge search/galloping strategy;
+- record layout/payload width;
 - stability or in-place guarantee;
 - branchless/vectorized partitioning;
 - parallelism or memory strategy.
