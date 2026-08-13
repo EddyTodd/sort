@@ -31,6 +31,7 @@ sortlab_executable(sort_leaf_hybrids src/sort_leaf_hybrids.cpp)
 sortlab_executable(sort_merge_policies src/sort_merge_policies.cpp)
 sortlab_executable(sort_merge_kernels src/sort_merge_kernels.cpp)
 sortlab_executable(sort_adaptive_records src/sort_adaptive_records.cpp)
+sortlab_executable(adaptive_record_kernel_contract src/adaptive_record_kernel_contract.cpp)
 
 include(CTest)
 include(cmake/ExternalBaselines.cmake)
@@ -58,6 +59,8 @@ if(BUILD_TESTING)
   add_test(NAME adaptive_merge_self_test COMMAND sort_merge_policies --self-test)
   add_test(NAME adaptive_merge_kernel_self_test COMMAND sort_merge_kernels --self-test)
   add_test(NAME adaptive_record_self_test COMMAND sort_adaptive_records --self-test)
+  add_test(NAME adaptive_record_backward_gallop_contract
+           COMMAND adaptive_record_kernel_contract)
   add_test(
     NAME tiny_kernel_smoke_benchmark
     COMMAND sort_tiny --trials 2 --warmups 0 --sizes 2,7,16,31
