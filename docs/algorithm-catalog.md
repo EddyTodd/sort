@@ -1,154 +1,105 @@
-# Algorithm catalog and coverage policy
+# v1 algorithm catalog and coverage policy
 
-The project does not equate "more algorithms" with better research. The catalog is organized by algorithmic mechanism so empirical comparisons cover materially different tradeoffs rather than dozens of cosmetic variants.
+The permanent v1 catalog is organized by **mechanism**, not by benchmark count. Comparison algorithms are generic C++23 random-access iterator/range algorithms with comparator/projection customization where practical. Distribution algorithms intentionally retain integral-domain constraints.
 
-## Implemented scalar algorithms
+The older benchmark-specific registry remains in the source tree only for pre-migration research compatibility and is not installed as public API.
 
-The canonical scalar harness contains 23 implementations/variants.
+## Direct insertion and exchange
 
-| Mechanism | Implementations |
-|---|---|
-| insertion | insertion, binary insertion |
-| selection/exchange | selection, bubble, comb |
-| Shell | Ciura-gap Shell, Pratt-gap Shell |
-| heap | project heapsort, `std` heap baseline |
-| merge | top-down merge, bottom-up merge, natural/run-adaptive merge |
-| quick | two-way Hoare, three-way, median-of-three, dual-pivot |
-| hybrid | introsort, merge+insertion cutoff 24, median-three quicksort+insertion cutoff 24 |
-| distribution | 8-bit LSD radix, 11-bit-digit LSD radix |
-| library | `std::sort`, `std::stable_sort` |
+| Algorithm | Stable | Storage | Adaptive note |
+|---|---:|---|---|
+| `insertion_sort` | yes | in-place | linear on already ordered data |
+| `binary_insertion_sort` | yes | in-place | reduces comparison search; movement remains quadratic |
+| `selection_sort` | no | in-place | fixed quadratic scan |
+| `bubble_sort` | yes | in-place | early-exit on ordered data |
+| `comb_sort` | no | in-place | shrinking-gap exchange treatment |
 
-The standalone cutoff harness treats the insertion threshold as a parameter instead of assuming 24 is universally optimal.
+## Shell / gapped insertion
 
-## Tiny-kernel and hybrid-leaf track
+- `shell_ciura_sort`
+- `shell_pratt_sort`
 
-The small-set track is intentionally separate from the 23 top-level scalar algorithms because its treatments have an explicit domain (`n <= 32`) and are studied primarily as base cases for larger algorithms.
+The gap sequence is a scientifically material part of Shell sorting, so both representative sequences remain explicit.
 
-`sort_tiny` implements:
+## Heap
 
-- linear insertion;
-- binary insertion;
-- a padded power-of-two bitonic sorting network;
-- `std::sort` as a direct small-set control.
+- `heap_sort` — in-place binary heapsort with `O(n log n)` worst-case comparisons.
 
-`sort_leaf_hybrids` then factorially combines the three project-controlled leaf kernels with merge sort, median-of-three quicksort, and introsort while independently varying the cutoff. This makes **leaf algorithm** and **leaf size** separate experimental variables.
+Additional heap variants such as smoothsort are not required for v1 mechanism completeness.
 
-The bitonic network is not labelled optimal. Optimal-size networks, SIMD/register sorting networks, conditional-move-specialized code, and AlphaDev-derived sequences remain distinct future comparison treatments. See `docs/tiny-kernel-research.md`.
+## Merge families
 
-## Adaptive stable merge-policy track
+- `merge_sort` — stable top-down merge sort with one reusable workspace per sort.
+- `merge_bottom_up_sort` — stable iterative merge sort with reusable workspace.
+- `natural_merge_sort` — stable natural-run adaptive merging.
+- `merge_insertion_sort` — stable merge sort with configurable insertion leaves.
+- `stable_inplace_merge_sort` — stable binary-partition/rotation merge sort using no linear element buffer; `O(log n)` recursion stack and `O(n log^2 n)` worst-case time.
 
-`sort_merge_policies` studies stable natural mergesort as a factorial design instead of treating “TimSort” or “Powersort” as indivisible labels.
+The last algorithm is the v1 representative of the serious stable low-extra-memory merge family. Grail/Wiki-style block-buffer implementations remain useful future alternatives within an already represented mechanism.
 
-Merge scheduling treatments:
+## Quicksort and hybrid comparison sorting
 
-- adjacent pairwise rounds;
-- the repaired TimSort run-stack policy;
-- Powersort's node-power schedule.
+- `quick_hoare_sort` — two-way Hoare partitioning.
+- `quick_3way_sort` — duplicate-aware three-way partitioning.
+- `quick_median3_sort` — median-of-three pivot treatment.
+- `dual_pivot_sort` — two-pivot partitioning.
+- `quick_insertion_sort` — configurable insertion leaves.
+- `intro_sort` — median-of-three quicksort with heap fallback and insertion leaves; `O(n log n)` worst case.
 
-Minrun treatments:
+These pivot-snapshot implementations require copy-constructible value types. Other move-friendly library algorithms do not inherit that requirement.
 
-- no artificial extension;
-- classic fixed TimSort-style minrun;
-- a balanced variable minrun sequence matching the current CPython design principle.
+## Production adaptive stable sorting
 
-All nine combinations use the same run detector, stable binary extension, and stable two-run merge kernel. This is deliberate: it isolates merge scheduling and run sizing from galloping and other merge-kernel optimizations.
+### `timsort`
 
-The track also includes five controlled run-shape families and an exact optimal alphabetic merge-cost model for up to 64 runs. See `docs/adaptive-merge-research.md`.
+The permanent implementation includes:
 
-These implementations are not inserted into the frozen 23-algorithm `canonical-v1` campaign retroactively. They have a separate `merge-policies-v1` Tier-2 contract; integration into a later unified portfolio requires a new versioned campaign.
+- natural monotone-run discovery;
+- strict descending-run reversal, so equal keys are never reversed;
+- stable binary extension to minrun;
+- repaired TimSort-style stack-collapse invariants and final force collapse;
+- smaller-run temporary buffering;
+- stable forward and backward merge directions;
+- exponential-search-plus-binary-search galloping in both directions;
+- stateful/dynamic `min_gallop` reward/penalty behavior.
 
-## Adaptive merge-kernel track
+It is an independent TimSort-style C++23 implementation, not source compatibility with CPython/OpenJDK.
 
-`sort_merge_kernels` studies the next independent layer of the adaptive merge stack. It freezes **Powersort scheduling + balanced variable minrun** as a controlled reference context, then varies the mechanism used to merge two already-selected adjacent runs.
+### `powersort`
 
-Temporary-buffer treatments:
+`powersort` uses the same production-quality generic stable merge kernel and natural-run/minrun machinery but chooses adjacent merges using integer node-power scheduling.
 
-- `full`: copy both runs into reusable workspace;
-- `smaller`: copy only the smaller run and merge forward or backward as required.
+## Distribution sorting
 
-Search treatments:
+| Algorithm | Domain | Stable | Storage |
+|---|---|---:|---|
+| `radix_lsd_sort` | integral | yes | linear buffer + histogram |
+| `radix_msd_sort` | integral | no | in-place American-flag-style permutation + recursion/histograms |
+| `counting_sort` | bounded integral | yes | `O(n + k)` buffer/counts |
 
-- `linear`: ordinary element-by-element stable merge;
-- `gallop`: after a consecutive-win threshold, use exponential search to bracket a boundary followed by binary search, then copy the discovered block.
+Signed integers are mapped monotonically to unsigned key space, so minimum/maximum signed values retain numerical ordering. Counting sort refuses an observed domain larger than caller-controlled `max_domain` rather than accidentally allocating an unbounded table.
 
-The canonical campaign treats gallop threshold as a tunable parameter (`4, 7, 12, 16`) rather than creating a permanent top-level sorter name for every threshold. `tools/tune_gallop.py` selects the threshold on training trials and evaluates it held-out against linear merging under the same buffer policy.
+## Tiny/data-oblivious sorting
 
-The smaller-run buffer has a structural per-merge workspace bound of `min(a,b) <= floor((a+b)/2)`. That fact is reported separately from empirical wall time, cache behavior, or memory-bandwidth claims.
+- `bitonic_sort` — generic arbitrary-`N` bitonic network-family treatment using a greatest-power-of-two merge construction.
 
-This track has its own `merge-kernels-v1` Tier-2 contract and H16-H17 evidence requirements. It does not modify the frozen H14-H15 scheduler/minrun experiment. See `docs/adaptive-merge-kernels.md`.
+v1 deliberately does not add an exhaustive table of fixed-`N` optimal or ISA-specialized networks. Those are valuable specialization/benchmark tracks, not a missing major sorting mechanism.
 
-## Implemented record algorithms
+## Standard-library and external baselines
 
-The general record-width laboratory intentionally uses a smaller representative set: insertion, heap, stable merge, two-way quicksort, three-way quicksort, introsort, stable radix, `std::sort`, and `std::stable_sort`. The goal is factorial control over payload width and stability, not duplicating every scalar variant for every record type.
+`std::sort`, `std::stable_sort`, pdqsort, and IPS4o remain comparison/reference treatments in the research layer. They are **not** wrappers exported as permanent `sortlab` algorithms, and external implementations do not become required package dependencies.
 
-### Adaptive record composition track
+## Coverage criterion
 
-`sort_adaptive_records` reuses the same ordinal-carrying `Record<Words>` representation, but exposes adaptive stable mergesort as a composition of independently selectable mechanisms:
+For v1, sequential in-memory CPU sorting is mechanism-complete when the library has representative implementations for:
 
-- scheduler: pairwise exploratory control, repaired TimSort stack, Powersort;
-- minrun: none, classic, balanced;
-- merge buffer: full or smaller-run;
-- merge search: linear or exponential-plus-binary galloping;
-- gallop threshold: parameterized;
-- payload width: `0,1,3,7,15,31` words.
+- insertion/exchange and Shell;
+- heap;
+- ordinary, natural, adaptive, hybrid, and low-extra-memory stable merge families;
+- two-way, duplicate-aware, sampled-pivot, multi-pivot, and worst-case-safe quick/hybrid sorting;
+- bounded counting plus stable LSD and in-place MSD integer distribution;
+- a data-oblivious tiny network family.
 
-Every comparison is by `key` only. Original ordinals and deterministic payloads are retained solely for integrity/stability verification. The adaptive record benchmark records explicit record moves, explicit moved bytes, requested temporary records/bytes, actual reusable-vector capacity, and gallop behavior.
+Parallel, GPU, NUMA, distributed, and external-memory sorting use different execution/memory contracts and are explicit future domains, not missing v1 mechanisms.
 
-The canonical `adaptive-records-v1` campaign is deliberately split rather than taking one huge cross-product:
-
-1. repaired TimSort-stack vs Powersort × none/classic/balanced minrun with full/linear merging fixed;
-2. full vs smaller buffering × linear/gallop thresholds with Powersort/balanced fixed.
-
-The naive pairwise scheduler remains an implementation/correctness control but is excluded from canonical record-policy evidence. See `docs/adaptive-merge-records.md`.
-
-## Provenance-pinned external track
-
-The first external comparison track is implemented as an opt-in build and a separate Tier-2 campaign. It currently contains:
-
-- `orlp/pdqsort` pinned to `b1ef26a55cdb60d236a5cb199c4234c704f46726`: `pdqsort` and `pdqsort_branchless`;
-- `ips4o/ips4o` pinned to `08a5b926ee65cef19139057c6bde02bb5542c1cb`: sequential `ips4o::sort`.
-
-These are measured in `sort_external` beside paired internal/library controls on the exact same generated inputs. Upstream source is not vendored into Git history; the bootstrap/provenance tools verify full commit, checkout cleanliness, required paths, license file hash, and Git tree identity before canonical evidence is collected. See `docs/external-baselines.md`.
-
-## Important external/state-of-the-art families
-
-The following remain part of the research universe even when they are not vendored into the core executable:
-
-- Peeksort and multiway Powersort as additional stable merge-policy research;
-- BlockQuicksort: branch-misprediction-aware partitioning;
-- QuickXsort / QuickMergesort: theoretically analyzed combinations of partitioning with another sorting method;
-- VQSort: vectorized, architecture-portable quicksort;
-- in-place stable block merges such as WikiSort/Grail-style methods;
-- counting, bucket, American-flag/MSD radix, and other bounded-domain distribution sorts;
-- optimal, SIMD/register, and architecture-specific tiny sorting networks;
-- parallel merge/sample/radix sorts, including parallel IPS4o as its own experiment model;
-- external-memory and NUMA-aware sorting.
-
-These are not silently labelled "missing." They are separate comparison tracks because several require external code, architecture-specific intrinsics, parallel runtimes, different input contracts, or materially different memory models. Every adapter must pin the upstream version and preserve license/provenance rather than copying an arbitrary implementation into the benchmark.
-
-## Variant policy
-
-A variant gets its own algorithm name when it changes a scientifically material parameter, including:
-
-- pivot selection or number of pivots;
-- duplicate partitioning strategy;
-- Shell gap sequence;
-- radix digit width;
-- insertion/base-case cutoff;
-- leaf algorithm;
-- merge order/run policy;
-- minrun/run-extension policy;
-- temporary-buffer strategy;
-- merge search/galloping strategy;
-- record layout/payload width;
-- stability or in-place guarantee;
-- branchless/vectorized partitioning;
-- parallelism or memory strategy.
-
-Continuous/tunable parameters such as cutoffs and gallop thresholds should normally live in a tuning experiment rather than creating hundreds of permanent algorithm names.
-
-## Completion criterion
-
-The core catalog is considered representative when every major mechanism above has at least one controlled implementation or an explicitly versioned external-baseline track. The research objective is then to characterize domains of superiority and crossover regions—not to declare one universal winner.
-
-Known incomplete comparison tracks are listed explicitly in `TECHNICAL_DEBT.md`.
+The machine-readable permanent metadata lives in `sortlab::algorithm_catalog` in `<sortlab/metadata.hpp>`.
