@@ -10,13 +10,6 @@ option(SORTLAB_WARNINGS_AS_ERRORS "Treat sortlab warnings as errors" ${PROJECT_I
 option(SORTLAB_BUILD_TESTS "Build deterministic sortlab correctness tests" ${PROJECT_IS_TOP_LEVEL})
 option(SORTLAB_BUILD_RESEARCH_TOOLS "Build retained benchmark/research executables pending migration to EddyTodd/bench" OFF)
 
-add_library(sortlab INTERFACE)
-add_library(sortlab::sortlab ALIAS sortlab)
-target_compile_features(sortlab INTERFACE cxx_std_23)
-target_include_directories(sortlab INTERFACE
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
-
 set(SORTLAB_PUBLIC_HEADERS
   include/sortlab/sort.hpp
   include/sortlab/version.hpp
@@ -37,17 +30,20 @@ set(SORTLAB_PUBLIC_HEADERS
   include/sortlab/tiny.hpp
   include/sortlab/metadata.hpp)
 
-install(TARGETS sortlab EXPORT sortlabTargets)
-set(SORTLAB_DETAIL_HEADERS
-  include/sortlab/detail/comparison_elementary.hpp
-  include/sortlab/detail/comparison_merge.hpp
-  include/sortlab/detail/comparison_quick.hpp
-  include/sortlab/detail/adaptive_common.hpp
-  include/sortlab/detail/adaptive_merger.hpp
-  include/sortlab/detail/adaptive_schedule.hpp)
-list(REMOVE_ITEM SORTLAB_PUBLIC_HEADERS ${SORTLAB_DETAIL_HEADERS})
-install(FILES ${SORTLAB_PUBLIC_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/sortlab)
-install(FILES ${SORTLAB_DETAIL_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/sortlab/detail)
+add_library(sortlab INTERFACE)
+add_library(sortlab::sortlab ALIAS sortlab)
+target_compile_features(sortlab INTERFACE cxx_std_23)
+target_include_directories(sortlab INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+target_sources(sortlab INTERFACE
+  FILE_SET public_headers
+  TYPE HEADERS
+  BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include
+  FILES ${SORTLAB_PUBLIC_HEADERS})
+
+install(TARGETS sortlab EXPORT sortlabTargets
+  FILE_SET public_headers DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(EXPORT sortlabTargets NAMESPACE sortlab:: DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/sortlab)
 configure_package_config_file(
   cmake/sortlabConfig.cmake.in
@@ -111,6 +107,13 @@ if(SORTLAB_BUILD_RESEARCH_TOOLS)
 endif()
 
 if(BUILD_TESTING AND SORTLAB_BUILD_TESTS)
+  include(cmake/HeaderSelfContainment.cmake)
+  add_public_header_self_containment_target(
+    sortlab-header-self-containment
+    sortlab
+    "${CMAKE_CURRENT_SOURCE_DIR}/include")
+  sortlab_apply_warnings(sortlab-header-self-containment)
+
   add_executable(sortlab_v1_tests tests/library_tests.cpp)
   target_link_libraries(sortlab_v1_tests PRIVATE sortlab::sortlab)
   set_target_properties(sortlab_v1_tests PROPERTIES CXX_EXTENSIONS OFF)
