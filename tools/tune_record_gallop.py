@@ -70,33 +70,35 @@ def read_rows(paths: Iterable[Path]) -> list[Row]:
 
 def tune(rows: Sequence[Row]) -> list[dict[str, object]]:
     train: dict[tuple[str, str, str, str, int, int, int], list[float]] = defaultdict(list)
-    heldout: dict[tuple[str, str, str, str, int, int, int, int, str], Row] = {}
+    heldout_linear: dict[tuple[str, str, str, str, int, int, int, str], Row] = {}
+    heldout_gallop: dict[
+        tuple[str, str, str, str, int, int, int, int, str], Row
+    ] = {}
+    record_bytes_by_cell: dict[tuple[str, str, str, str, int, int], int] = {}
 
     for row in rows:
-        if row.trial % 3 == 2:
-            heldout[(row.merge_policy, row.minrun_policy, row.buffer_policy,
-                     row.pattern, row.n, row.payload_words,
-                     row.gallop_threshold, row.trial, row.input_hash)] = row
+        cell = (row.merge_policy, row.minrun_policy, row.buffer_policy,
+                row.pattern, row.n, row.payload_words)
+        record_bytes_by_cell[cell] = row.record_bytes
+        if row.trial % 3 != 2:
+            if row.search_policy == "gallop":
+                train[cell + (row.gallop_threshold,)].append(row.ns)
+            continue
+        identity = cell + (row.trial, row.input_hash)
+        if row.search_policy == "linear":
+            heldout_linear[identity] = row
         elif row.search_policy == "gallop":
-            train[(row.merge_policy, row.minrun_policy, row.buffer_policy,
-                   row.pattern, row.n, row.payload_words,
-                   row.gallop_threshold)].append(row.ns)
+            heldout_gallop[cell + (row.gallop_threshold, row.trial,
+                                    row.input_hash)] = row
 
-    cells = sorted({
-        (row.merge_policy, row.minrun_policy, row.buffer_policy, row.pattern,
-         row.n, row.payload_words, row.record_bytes)
-        for row in rows if row.search_policy == "gallop"
-    })
+    cells = sorted({key[:-1] for key in train})
     output: list[dict[str, object]] = []
-    for merge_policy, minrun_policy, buffer_policy, pattern, n, payload_words, record_bytes in cells:
-        candidates: list[tuple[float, int]] = []
-        for key, values in train.items():
-            policy, minrun, buffer_name, candidate_pattern, candidate_n, candidate_words, threshold = key
-            if (policy, minrun, buffer_name, candidate_pattern, candidate_n,
-                candidate_words) != (merge_policy, minrun_policy, buffer_policy,
-                                     pattern, n, payload_words):
-                continue
-            candidates.append((float(statistics.median(values)), threshold))
+    for cell in cells:
+        merge_policy, minrun_policy, buffer_policy, pattern, n, payload_words = cell
+        candidates = [
+            (float(statistics.median(values)), key[-1])
+            for key, values in train.items() if key[:-1] == cell
+        ]
         if not candidates:
             continue
         train_median, selected_threshold = min(candidates)
@@ -104,26 +106,12 @@ def tune(rows: Sequence[Row]) -> list[dict[str, object]]:
         ratios: list[float] = []
         gallop_ns: list[float] = []
         linear_ns: list[float] = []
-        for row in rows:
-            if row.trial % 3 != 2:
+        prefix = cell + (selected_threshold,)
+        for key, row in heldout_gallop.items():
+            if key[:7] != prefix:
                 continue
-            if (row.merge_policy, row.minrun_policy, row.buffer_policy,
-                row.pattern, row.n, row.payload_words) != (
-                    merge_policy, minrun_policy, buffer_policy, pattern, n,
-                    payload_words):
-                continue
-            if row.search_policy != "gallop" or row.gallop_threshold != selected_threshold:
-                continue
-            base = next((candidate for candidate in rows
-                         if candidate.trial == row.trial
-                         and candidate.input_hash == row.input_hash
-                         and candidate.merge_policy == merge_policy
-                         and candidate.minrun_policy == minrun_policy
-                         and candidate.buffer_policy == buffer_policy
-                         and candidate.pattern == pattern
-                         and candidate.n == n
-                         and candidate.payload_words == payload_words
-                         and candidate.search_policy == "linear"), None)
+            identity = cell + (row.trial, row.input_hash)
+            base = heldout_linear.get(identity)
             if base is None or row.ns <= 0:
                 continue
             ratios.append(base.ns / row.ns)
@@ -137,7 +125,7 @@ def tune(rows: Sequence[Row]) -> list[dict[str, object]]:
             "pattern": pattern,
             "n": n,
             "payload_words": payload_words,
-            "record_bytes": record_bytes,
+            "record_bytes": record_bytes_by_cell[cell],
             "selected_gallop_threshold": selected_threshold,
             "training_selected_median_ns": train_median,
             "heldout_pairs": len(ratios),
