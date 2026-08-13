@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(sort_lab VERSION 0.9.0 LANGUAGES CXX)
+project(sort_lab VERSION 0.10.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -30,6 +30,8 @@ sortlab_executable(sort_tiny src/sort_tiny.cpp)
 sortlab_executable(sort_leaf_hybrids src/sort_leaf_hybrids.cpp)
 sortlab_executable(sort_merge_policies src/sort_merge_policies.cpp)
 sortlab_executable(sort_merge_kernels src/sort_merge_kernels.cpp)
+sortlab_executable(sort_adaptive_records src/sort_adaptive_records.cpp)
+sortlab_executable(adaptive_record_kernel_contract src/adaptive_record_kernel_contract.cpp)
 
 include(CTest)
 include(cmake/ExternalBaselines.cmake)
@@ -56,6 +58,9 @@ if(BUILD_TESTING)
   add_test(NAME leaf_hybrid_self_test COMMAND sort_leaf_hybrids --self-test)
   add_test(NAME adaptive_merge_self_test COMMAND sort_merge_policies --self-test)
   add_test(NAME adaptive_merge_kernel_self_test COMMAND sort_merge_kernels --self-test)
+  add_test(NAME adaptive_record_self_test COMMAND sort_adaptive_records --self-test)
+  add_test(NAME adaptive_record_backward_gallop_contract
+           COMMAND adaptive_record_kernel_contract)
   add_test(
     NAME tiny_kernel_smoke_benchmark
     COMMAND sort_tiny --trials 2 --warmups 0 --sizes 2,7,16,31
@@ -75,6 +80,12 @@ if(BUILD_TESTING)
     COMMAND sort_merge_kernels --trials 2 --warmups 0 --sizes 64,315
             --patterns random,run_long_short,run_alternating_direction
             --gallop-thresholds 4,7)
+  add_test(
+    NAME adaptive_record_smoke_benchmark
+    COMMAND sort_adaptive_records --trials 2 --warmups 0 --sizes 31,64,315
+            --payload-words 0,7,31 --patterns few_unique,binary,run_long_short,run_alternating_direction
+            --policies timsort_stack,powersort --minruns classic,balanced
+            --buffers full,smaller --searches linear,gallop --gallop-thresholds 4,7)
 
   find_package(Python3 COMPONENTS Interpreter QUIET)
   if(Python3_Interpreter_FOUND)
@@ -116,5 +127,11 @@ if(BUILD_TESTING)
              COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/analyze_merge_kernels.py --self-test)
     add_test(NAME gallop_tuning_self_test
              COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/tune_gallop.py --self-test)
+    add_test(NAME adaptive_record_analysis_self_test
+             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/analyze_adaptive_records.py --self-test)
+    add_test(NAME adaptive_record_width_analysis_self_test
+             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/analyze_record_width_effects.py --self-test)
+    add_test(NAME adaptive_record_gallop_tuning_self_test
+             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/tune_record_gallop.py --self-test)
   endif()
 endif()

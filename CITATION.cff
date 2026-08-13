@@ -7,7 +7,7 @@ authors:
     given-names: Eddy
 repository-code: "https://github.com/EddyTodd/sort"
 license: MIT
-version: 0.9.0
+version: 0.10.0
 keywords:
   - sorting algorithms
   - benchmarking
@@ -17,6 +17,9 @@ keywords:
   - merge policies
   - galloping merge
   - merge buffers
+  - stable sorting
+  - record width
+  - data movement
   - algorithm engineering
   - reproducibility
   - empirical research
