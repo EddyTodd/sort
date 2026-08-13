@@ -288,8 +288,8 @@ int self_test() {
       !self_test_width<31>(cases)) {
     return 1;
   }
-  std::cout << "PASS: adaptive records across 13 treatments, "
-            << adaptive_record_patterns().size()
+  std::cout << "PASS: adaptive records across " << self_test_treatments().size()
+            << " treatments, " << adaptive_record_patterns().size()
             << " workload families, 3 representative payload widths, " << cases
             << " deterministic treatment cases, and direct stability/gallop contracts\n";
   return 0;
