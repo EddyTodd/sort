@@ -9,6 +9,7 @@ All notable changes to `sortlab` are recorded here. The installed header-only C+
 - Standard `dev`, `release`, `sanitize`, and checkout-local `package` CMake presets.
 - External installed-package consumer smoke testing.
 - Target-owned 18-header public API file set and build-time independent compilation of every installed header.
+- Dependency-free release metadata verification across CMake, the public version header, citation metadata, and changelog history.
 
 ### Changed
 
