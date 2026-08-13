@@ -2,9 +2,11 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <functional>
 #include <iostream>
 #include <limits>
 #include <ranges>
+#include <stdexcept>
 #include <vector>
 
 int main() {
