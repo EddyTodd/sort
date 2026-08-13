@@ -61,6 +61,7 @@ install(FILES
   ${CMAKE_CURRENT_BINARY_DIR}/sortlabConfig.cmake
   ${CMAKE_CURRENT_BINARY_DIR}/sortlabConfigVersion.cmake
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/sortlab)
+install(FILES LICENSE DESTINATION ${CMAKE_INSTALL_DATADIR}/sortlab)
 
 function(sortlab_apply_warnings target)
   if(MSVC)
