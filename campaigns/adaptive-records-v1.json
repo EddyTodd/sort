@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "campaign_id": "adaptive-records-v1",
+  "description": "Tier-2 adaptive stable merge experiments over ordinal-carrying records, separating scheduler/minrun effects from merge-kernel effects across payload widths.",
+  "experiments": [
+    {
+      "id": "adaptive-record-policy-factorial",
+      "binary": "sort_adaptive_records",
+      "purpose": "Measure merge-scheduler and minrun interactions across record widths while holding the merge kernel fixed at full-buffer linear merging.",
+      "repetitions": 2,
+      "args": [
+        "--trials", "31", "--warmups", "2",
+        "--payload-words", "0,1,3,7,15,31",
+        "--policies", "pairwise,timsort_stack,powersort",
+        "--minruns", "none,classic,balanced",
+        "--buffers", "full", "--searches", "linear",
+        "--patterns", "random,sorted,few_unique,binary,nearly_sorted,runs,plateau,run_long_short,run_fibonacci",
+        "--sizes", "64,128,315,1024,4096,16384,65536,262144"
+      ],
+      "analysis": [
+        ["python3", "tools/analyze_adaptive_records.py", "{raw}", "--baseline", "powersort_balanced_full_linear", "--bootstrap", "5000", "--output", "{run_dir}/adaptive-record-policy-summary.csv"],
+        ["python3", "tools/analyze_record_width_effects.py", "{raw}", "--output", "{run_dir}/adaptive-record-policy-width-effects.csv"]
+      ]
+    },
+    {
+      "id": "adaptive-record-kernel-factorial",
+      "binary": "sort_adaptive_records",
+      "purpose": "Measure full versus smaller-run buffering and linear versus galloping merge search across record widths while holding Powersort and balanced minrun fixed.",
+      "repetitions": 2,
+      "args": [
+        "--trials", "31", "--warmups", "2",
+        "--payload-words", "0,1,3,7,15,31",
+        "--policies", "powersort", "--minruns", "balanced",
+        "--buffers", "full,smaller", "--searches", "linear,gallop",
+        "--gallop-thresholds", "4,7,12,16",
+        "--patterns", "random,sorted,few_unique,binary,nearly_sorted,runs,plateau,run_long_short,run_power_skew,run_fibonacci,run_alternating_direction",
+        "--sizes", "64,128,315,1024,4096,16384,65536,262144"
+      ],
+      "analysis": [
+        ["python3", "tools/analyze_adaptive_records.py", "{raw}", "--baseline", "powersort_balanced_smaller_gallop_7", "--bootstrap", "5000", "--output", "{run_dir}/adaptive-record-kernel-summary.csv"],
+        ["python3", "tools/analyze_record_width_effects.py", "{raw}", "--output", "{run_dir}/adaptive-record-kernel-width-effects.csv"],
+        ["python3", "tools/tune_record_gallop.py", "{raw}", "--output", "{run_dir}/adaptive-record-gallop-heldout.csv"]
+      ]
+    }
+  ]
+}
