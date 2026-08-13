@@ -8,6 +8,7 @@ authors:
 repository-code: "https://github.com/EddyTodd/sort"
 license: MIT
 version: 1.0.0
+date-released: 2026-08-12
 keywords:
   - sorting algorithms
   - C++23
