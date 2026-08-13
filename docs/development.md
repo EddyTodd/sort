@@ -28,6 +28,18 @@ ctest --preset sanitize
 
 The sanitizer preset enables `SORTLAB_ENABLE_SANITIZERS=ON` and `SORTLAB_WARNINGS_AS_ERRORS=ON`.
 
+## Install-package check
+
+The `package` preset installs a Release build into `build/package-prefix`:
+
+```sh
+cmake --preset package
+cmake --build --preset package
+ctest --preset package
+```
+
+Because `sortlab::sortlab` is header-only, the install check is especially important: it exercises the exported INTERFACE target, permanent public/detail header lists, relocatable package/version files, and installed license without relying on the source-tree include path.
+
 ## Header-only development
 
 `sortlab::sortlab` is an `INTERFACE` library, so the normal build graph primarily compiles deterministic correctness/contract tests. This is intentional: historical benchmark executables live under `research/apps/` and are disabled by default.
