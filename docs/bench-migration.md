@@ -16,7 +16,7 @@ Permanent sorting-domain assets:
 - v1 scope/completeness documentation;
 - minimal examples needed to demonstrate the public API.
 
-`include/sortlab/` is now exclusively the permanent public library surface. Pre-v1 benchmark-only headers were moved to `research/include/sortlab/` and are added to include paths only when research targets are explicitly enabled.
+`include/sortlab/` is exclusively the permanent public library surface. Pre-v1 benchmark-only headers live under `research/include/sortlab/` and are added to include paths only when research targets are explicitly enabled.
 
 ## Moves to `EddyTodd/bench`
 
@@ -37,18 +37,20 @@ Sorting experiments can remain as bench-side experiment definitions that depend 
 
 ## Sorting-specific benchmark adapters that move with the framework
 
-These are currently useful but are not permanent library API:
+These retained executables are not permanent library API and now live under `research/apps/`:
 
-- `src/sort_lab.cpp`;
-- `src/sort_records.cpp`;
-- `src/sort_cutoffs.cpp`;
-- `src/sort_perf.cpp`;
-- `src/sort_alloc.cpp`;
-- `src/sort_tiny.cpp`;
-- `src/sort_leaf_hybrids.cpp`;
-- `src/sort_merge_policies.cpp`;
-- `src/sort_merge_kernels.cpp`;
-- `src/sort_adaptive_records.cpp`;
+- `sort_lab.cpp`;
+- `sort_records.cpp`;
+- `sort_cutoffs.cpp`;
+- `sort_perf.cpp`;
+- `sort_alloc.cpp`;
+- `sort_tiny.cpp`;
+- `sort_leaf_hybrids.cpp`;
+- `sort_merge_policies.cpp`;
+- `sort_merge_kernels.cpp`;
+- `sort_adaptive_records.cpp`;
+- `adaptive_record_kernel_contract.cpp`;
+- `sort_external.cpp` when the optional external-baseline track is enabled;
 - `research/include/sortlab/` legacy benchmark-only algorithm/workload/counter headers;
 - workload generators whose purpose is empirical treatment construction;
 - `campaigns/`;

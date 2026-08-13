@@ -16,7 +16,7 @@ if(SORTLAB_ENABLE_EXTERNAL_BASELINES)
     endif()
   endforeach()
 
-  sortlab_executable(sort_external src/sort_external.cpp)
+  sortlab_research_executable(sort_external research/apps/sort_external.cpp)
   target_include_directories(sort_external PRIVATE
     "${SORTLAB_PDQ_DIR}"
     "${SORTLAB_IPS4O_DIR}/include")
@@ -24,7 +24,7 @@ if(SORTLAB_ENABLE_EXTERNAL_BASELINES)
     SORTLAB_PDQ_COMMIT="${SORTLAB_PDQ_COMMIT}"
     SORTLAB_IPS4O_COMMIT="${SORTLAB_IPS4O_COMMIT}")
 
-  if(BUILD_TESTING)
+  if(BUILD_TESTING AND SORTLAB_BUILD_TESTS)
     add_test(NAME external_sort_self_test COMMAND sort_external --self-test)
   endif()
 endif()
