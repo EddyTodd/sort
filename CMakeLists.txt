@@ -78,6 +78,13 @@ function(sortlab_apply_sanitizers target)
   endif()
 endfunction()
 
+function(sortlab_configure_private_target target)
+  target_compile_features(${target} PRIVATE cxx_std_23)
+  set_target_properties(${target} PROPERTIES CXX_EXTENSIONS OFF)
+  sortlab_apply_warnings(${target})
+  sortlab_apply_sanitizers(${target})
+endfunction()
+
 if(BUILD_TESTING AND SORTLAB_BUILD_TESTS)
   include(cmake/HeaderSelfContainment.cmake)
   add_public_header_self_containment_target(
@@ -88,16 +95,12 @@ if(BUILD_TESTING AND SORTLAB_BUILD_TESTS)
 
   add_executable(sortlab_v1_tests tests/library_tests.cpp)
   target_link_libraries(sortlab_v1_tests PRIVATE sortlab::sortlab)
-  set_target_properties(sortlab_v1_tests PROPERTIES CXX_EXTENSIONS OFF)
-  sortlab_apply_warnings(sortlab_v1_tests)
-  sortlab_apply_sanitizers(sortlab_v1_tests)
+  sortlab_configure_private_target(sortlab_v1_tests)
   add_test(NAME sortlab_v1_tests COMMAND sortlab_v1_tests)
 
   add_executable(sortlab_adaptive_option_contract tests/adaptive_option_contract.cpp)
   target_link_libraries(sortlab_adaptive_option_contract PRIVATE sortlab::sortlab)
-  set_target_properties(sortlab_adaptive_option_contract PROPERTIES CXX_EXTENSIONS OFF)
-  sortlab_apply_warnings(sortlab_adaptive_option_contract)
-  sortlab_apply_sanitizers(sortlab_adaptive_option_contract)
+  sortlab_configure_private_target(sortlab_adaptive_option_contract)
   add_test(NAME sortlab_adaptive_option_contract COMMAND sortlab_adaptive_option_contract)
 
   if(NOT SORTLAB_ENABLE_SANITIZERS)
