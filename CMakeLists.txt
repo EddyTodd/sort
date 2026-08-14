@@ -8,14 +8,6 @@ include(CTest)
 option(SORTLAB_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(SORTLAB_WARNINGS_AS_ERRORS "Treat sortlab warnings as errors" ${PROJECT_IS_TOP_LEVEL})
 option(SORTLAB_BUILD_TESTS "Build deterministic sortlab correctness tests" ${PROJECT_IS_TOP_LEVEL})
-option(SORTLAB_BUILD_RETAINED_RESEARCH "Build retained pre-migration empirical executables for evidence reproduction/comparison" OFF)
-option(SORTLAB_BUILD_RESEARCH_TOOLS "Deprecated alias for SORTLAB_BUILD_RETAINED_RESEARCH" OFF)
-
-if(SORTLAB_BUILD_RESEARCH_TOOLS)
-  message(DEPRECATION
-    "SORTLAB_BUILD_RESEARCH_TOOLS is deprecated; use SORTLAB_BUILD_RETAINED_RESEARCH=ON")
-  set(SORTLAB_BUILD_RETAINED_RESEARCH ON)
-endif()
 
 set(SORTLAB_PUBLIC_HEADERS
   include/sortlab/sort.hpp
@@ -44,8 +36,7 @@ target_include_directories(sortlab INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_sources(sortlab INTERFACE
-  FILE_SET public_headers
-  TYPE HEADERS
+  FILE_SET public_headers TYPE HEADERS
   BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include
   FILES ${SORTLAB_PUBLIC_HEADERS})
 
@@ -87,10 +78,6 @@ function(sortlab_apply_sanitizers target)
   endif()
 endfunction()
 
-if(SORTLAB_BUILD_RETAINED_RESEARCH)
-  include(cmake/RetainedResearch.cmake)
-endif()
-
 if(BUILD_TESTING AND SORTLAB_BUILD_TESTS)
   include(cmake/HeaderSelfContainment.cmake)
   add_public_header_self_containment_target(
@@ -118,9 +105,5 @@ if(BUILD_TESTING AND SORTLAB_BUILD_TESTS)
     register_package_consumer_test(
       sortlab.package-consumer
       "${CMAKE_CURRENT_SOURCE_DIR}/tests/package-consumer")
-  endif()
-
-  if(SORTLAB_BUILD_RETAINED_RESEARCH)
-    sortlab_register_retained_research_tests()
   endif()
 endif()

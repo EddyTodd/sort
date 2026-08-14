@@ -1,59 +1,43 @@
 # Development workflow
 
-`sortlab` uses the shared subject-repository developer workflow.
+The repository has one build surface: the permanent header-only library and its deterministic correctness/package tests.
 
-## Standard presets
+## Debug
 
-```sh
+```bash
 cmake --preset dev
 cmake --build --preset dev
 ctest --preset dev
 ```
 
-Optimized configuration:
+## Release
 
-```sh
+```bash
 cmake --preset release
 cmake --build --preset release
 ctest --preset release
 ```
 
-Strict local sanitizer configuration:
+## Sanitizers
 
-```sh
+```bash
 cmake --preset sanitize
 cmake --build --preset sanitize
 ctest --preset sanitize
 ```
 
-The sanitizer preset enables `SORTLAB_ENABLE_SANITIZERS=ON` and `SORTLAB_WARNINGS_AS_ERRORS=ON`.
+The sanitizer preset enables ASan/UBSan and warnings-as-errors on supported non-MSVC compilers.
 
-## Install-package check
+## Package validation
 
-The `package` preset installs a Release build into `build/package-prefix`:
-
-```sh
+```bash
 cmake --preset package
 cmake --build --preset package
 ctest --preset package
 ```
 
-Because `sortlab::sortlab` is header-only, the install check is especially important: it exercises the exported INTERFACE target, permanent public/detail header lists, relocatable package/version files, and installed license without relying on the source-tree include path.
+The package test installs the header-only target, relocates the install tree, and consumes it from a separate CMake project. Public-header self-containment is compiled from the target-owned header file set.
 
-Normal non-sanitized standalone CTest graphs also run `sortlab.package-consumer`. The test installs the current build into an isolated staging prefix, physically moves the complete install tree to a different sibling prefix, verifies the original path no longer exists, and only then configures/builds a completely separate project after `find_package(sortlab 1 CONFIG REQUIRED)` before running that consumer's CTest suite. The downstream executable sorts a real `std::array<int, 5>` with installed `sortlab::intro_sort` and verifies the resulting order. This directly detects absolute-prefix leakage, omitted installed headers, source-tree-only include assumptions, and runtime/template regressions in the exported header-only target. Sanitizer configurations omit the distribution smoke; the permanent in-tree correctness tests remain sanitizer-instrumented.
+Machine/compiler overrides belong in ignored `CMakeUserPresets.json`.
 
-## Header-only development
-
-`sortlab::sortlab` is an `INTERFACE` library, so the normal build graph primarily compiles deterministic correctness/contract tests. This is intentional: historical benchmark executables live under `research/apps/` and are disabled by default.
-
-Enable retained research targets only for migration/parity work:
-
-```sh
-cmake --preset dev -DSORTLAB_BUILD_RESEARCH_TOOLS=ON
-```
-
-Generic empirical orchestration and new campaign infrastructure belong in `EddyTodd/bench`.
-
-## User-local configuration
-
-Put machine/compiler/SDK overrides in `CMakeUserPresets.json`; it is intentionally ignored by Git. Shared presets must remain portable and should not embed local external-baseline checkout paths or architecture-specific flags.
+Performance experiments and empirical tooling belong in `EddyTodd/bench`, not in this repository.
