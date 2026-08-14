@@ -1,8 +1,6 @@
 # sortlab
 
-`sortlab` is a C++23 header-only library of sequential in-memory sorting algorithms. It focuses on algorithm mechanisms, generic reusable APIs, deterministic correctness, and sorting theory.
-
-Empirical performance research lives in [`EddyTodd/bench`](https://github.com/EddyTodd/bench). This repository intentionally contains no benchmark runner, campaign framework, performance result corpus, or benchmark-specific algorithm copy.
+`sortlab` is a header-only C++23 library of sequential in-memory sorting algorithms. It focuses on reusable generic APIs, representative algorithm mechanisms, deterministic correctness, stability semantics, and optional operation instrumentation. Empirical performance research lives in [`EddyTodd/bench`](https://github.com/EddyTodd/bench).
 
 ## Use
 
@@ -15,19 +13,19 @@ std::vector<int> values{5, 1, 4, 1, 3};
 sortlab::intro_sort(values);
 ```
 
-Comparison algorithms accept random-access iterators/ranges and, where applicable, comparators and projections:
+Comparison algorithms accept random-access iterators or ranges and support comparators and projections where applicable:
 
 ```cpp
 struct row {
-  int key;
-  std::string payload;
+    int key;
+    std::string payload;
 };
 
 std::vector<row> rows = /* ... */;
 sortlab::timsort(rows, std::ranges::less{}, &row::key);
 ```
 
-Optional instrumentation uses the same algorithm implementations rather than benchmark-specific copies:
+Instrumentation uses the same algorithm implementations rather than benchmark-only copies:
 
 ```cpp
 sortlab::operation_counts counts;
@@ -35,76 +33,24 @@ sortlab::counting_observer observer(counts);
 sortlab::instrumented::merge_sort(values.begin(), values.end(), observer);
 ```
 
-See `docs/library-api.md`.
+## Scope
 
-## Algorithm catalog
+Version 1 covers sequential in-memory CPU sorting. The catalog includes:
 
-### Elementary
+- insertion, selection, bubble, comb, Shell, heap, merge, quicksort, and introspective families;
+- merge/insertion and quick/insertion hybrids with configurable leaf cutoffs;
+- natural merge sort and stable in-place divide/rotate merge sort;
+- TimSort and PowerSort with shared adaptive stable merging;
+- stable LSD radix, in-place MSD radix permutation, and bounded-domain counting sort for integral domains;
+- generic bitonic sorting-network construction for tiny/data-oblivious workloads.
 
-- insertion sort;
-- binary insertion sort;
-- selection sort;
-- bubble sort;
-- comb sort;
-- Ciura and Pratt Shell sorts.
-
-### Heap and merge families
-
-- heap sort;
-- top-down merge sort;
-- bottom-up merge sort;
-- natural merge sort;
-- merge/insertion hybrid with configurable leaf cutoff;
-- stable in-place divide/rotate merge sort.
-
-### Quicksort and introspective families
-
-- Hoare quicksort;
-- three-way quicksort;
-- median-of-three quicksort;
-- dual-pivot quicksort;
-- quick/insertion hybrid with configurable leaf cutoff;
-- introsort with insertion leaves and heap fallback.
-
-### Adaptive stable merges
-
-- TimSort with run detection, binary extension, stack invariants, smaller-run buffering, forward/backward stable merging, galloping, and dynamic `min_gallop` adaptation;
-- PowerSort using the same stable adaptive merge kernel with node-power scheduling.
-
-### Distribution sorting
-
-Integral types:
-
-- stable LSD radix sort;
-- in-place MSD radix permutation;
-- bounded-domain stable counting sort.
-
-Signed integer ordering is handled across the full representable range.
-
-### Tiny/data-oblivious
-
-- generic bitonic sorting network construction, including non-power-of-two lengths.
-
-See `docs/algorithm-catalog.md`, `REFERENCES.md`, and `V1_COMPLETENESS.md`.
+Parallel, GPU, distributed, external-memory, architecture-specific SIMD sorters, and exhaustive optimal-network catalogs are outside v1.
 
 ## Correctness
 
-The permanent deterministic suite covers:
+The deterministic suite covers empty/tiny inputs, sorted/reversed/equal/duplicate-heavy/random data, signed integer extremes, comparator/projection behavior, declared stability, move-only values where supported, adaptive run geometry, galloping, radix boundaries, counting-sort domain rejection, metadata consistency, and instrumentation contracts.
 
-- empty/singleton/tiny inputs;
-- sorted, reversed, equal, duplicate-heavy, and randomized data;
-- signed integer extremes;
-- custom comparators and projections;
-- declared stability guarantees;
-- move-only types where supported;
-- pathological TimSort/PowerSort run geometries;
-- forward/backward adaptive merges and galloping;
-- radix digit-width and signed-boundary behavior;
-- counting-sort domain rejection;
-- metadata consistency;
-- optional operation instrumentation.
-
-## Build and test
+## Build
 
 ```bash
 cmake --preset dev
@@ -112,17 +58,7 @@ cmake --build --preset dev
 ctest --preset dev
 ```
 
-Release and sanitizer presets are also provided:
-
-```bash
-cmake --preset release
-cmake --build --preset release
-ctest --preset release
-
-cmake --preset sanitize
-cmake --build --preset sanitize
-ctest --preset sanitize
-```
+`release`, `sanitize`, and `package` presets use the same interface.
 
 ## Install
 
@@ -138,13 +74,15 @@ find_package(sortlab 1 CONFIG REQUIRED)
 target_link_libraries(your_target PRIVATE sortlab::sortlab)
 ```
 
-The installed package is header-only and has no required third-party runtime dependency.
+## Documentation
 
-## Scope
+- [`docs/library-api.md`](docs/library-api.md) — public API and instrumentation
+- [`docs/algorithm-catalog.md`](docs/algorithm-catalog.md) — algorithm families and guarantees
+- [`docs/theory.md`](docs/theory.md) — algorithmic background and tradeoffs
+- [`docs/scope.md`](docs/scope.md) — v1 completeness and scope boundary
+- [`docs/references.md`](docs/references.md) — literature
 
-Version 1 is sequential, in-memory CPU sorting. Parallel/GPU/distributed/external-memory sorting, architecture-specific SIMD sorters, and exhaustive optimal sorting-network catalogs are separate future domains rather than v1 blockers.
-
-Performance comparisons, workload campaigns, cutoff inference, external implementation comparisons, and result reporting are intentionally performed in `EddyTodd/bench` against this public API.
+Workload campaigns, cutoff inference, crossover analysis, external implementation comparisons, statistics, provenance, and reports are intentionally centralized in [`EddyTodd/bench`](https://github.com/EddyTodd/bench).
 
 ## License
 
