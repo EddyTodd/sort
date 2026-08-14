@@ -1,13 +1,13 @@
 # sortlab
 
-`sortlab` is a C++23 library of sequential in-memory sorting algorithms, plus a retained research harness that will be migrated to [`EddyTodd/bench`](https://github.com/EddyTodd/bench).
+`sortlab` is a C++23 library of sequential in-memory sorting algorithms.  Its pre-v1 empirical programs are retained temporarily for evidence reproduction while their exact treatments migrate to [`EddyTodd/bench`](https://github.com/EddyTodd/bench).
 
 Version 1 separates those concerns deliberately:
 
 - **permanent library:** generic sorting algorithms, correctness contracts, metadata, instrumentation hooks, CMake package;
-- **research compatibility layer:** benchmark executables, workloads, campaign/statistics/provenance tools, and external comparison adapters retained temporarily so earlier research remains reproducible.
+- **retained research compatibility layer:** historical empirical executables, workload/mechanism assets, and reconstruction tooling kept outside the installed API until bench's evidence-acceptance gate permits cleanup.
 
-The installed package contains only the permanent library headers. Benchmark-only headers and executables are not part of the installed API.
+The installed package contains only the permanent library headers. Retained research headers and executables are not part of the installed API or the default package surface.
 
 ## Use the library
 
@@ -85,7 +85,7 @@ The quicksort-family implementations snapshot pivots and therefore require copy-
 - `timsort` — strict descending-run reversal, stable binary run extension, repaired TimSort stack-collapse invariants, smaller-run buffering, forward/backward stable merging, exponential/binary galloping, and **dynamic `min_gallop` adaptation**;
 - `powersort` — the same stable adaptive merge kernel under Powersort node-power scheduling.
 
-These are permanent algorithms, not only benchmark treatments. The legacy research executables still expose fixed policy/threshold experiments for historical studies, but they are separate from the v1 API.
+These are permanent algorithms, not only benchmark treatments. The retained research executables still expose fixed policy/threshold experiments for historical studies, but they are separate from the v1 API.
 
 ### Distribution sorting
 
@@ -101,7 +101,7 @@ Signed integers are ordered correctly across their full representable range by m
 
 - `bitonic_sort` — generic bitonic network family, including non-power-of-two sizes via the greatest-power-of-two merge construction.
 
-The older padded-bitonic benchmark treatment remains in the research layer. v1 deliberately does **not** claim an optimal-comparator small-N network catalog; specialized optimal/ISA-specific networks are implementation-optimization research, not a missing sorting mechanism. See [`V1_COMPLETENESS.md`](V1_COMPLETENESS.md).
+The older padded-bitonic benchmark treatment remains in the retained research layer. v1 deliberately does **not** claim an optimal-comparator small-N network catalog; specialized optimal/ISA-specific networks are implementation-optimization research, not a missing sorting mechanism. See [`V1_COMPLETENESS.md`](V1_COMPLETENESS.md).
 
 ## Stability and records
 
@@ -121,31 +121,32 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 
-To build only the permanent library and v1 correctness suite:
-
-```sh
-cmake -S . -B build-core \
-  -DSORTLAB_BUILD_RESEARCH_TOOLS=OFF \
-  -DCMAKE_BUILD_TYPE=Release
-cmake --build build-core -j
-ctest --test-dir build-core --output-on-failure
-```
+The default build contains only the permanent library/test/package surface; retained empirical targets are disabled.
 
 Sanitizers:
 
 ```sh
 cmake -S . -B build-san \
-  -DSORTLAB_BUILD_RESEARCH_TOOLS=OFF \
   -DSORTLAB_ENABLE_SANITIZERS=ON \
   -DCMAKE_BUILD_TYPE=Debug
 cmake --build build-san -j
 ctest --test-dir build-san --output-on-failure
 ```
 
+To reproduce the retained pre-migration research programs intentionally:
+
+```sh
+cmake --preset retained-research
+cmake --build --preset retained-research
+ctest --preset retained-research
+```
+
+Equivalent direct configuration uses `-DSORTLAB_BUILD_RETAINED_RESEARCH=ON`. `SORTLAB_BUILD_RESEARCH_TOOLS=ON` remains a deprecated compatibility alias for old reproduction instructions.
+
 Install and consume with CMake:
 
 ```sh
-cmake --install build-core --prefix /your/prefix
+cmake --install build --prefix /your/prefix
 ```
 
 ```cmake
@@ -193,9 +194,13 @@ Those require different execution, memory, or evidence contracts and remain futu
 
 ## Research material and `bench` migration
 
-The repository still contains substantial empirical infrastructure from pre-v1 work: `campaigns/`, `claims/`, most `tools/*.py`, workload generators, `sort_*` benchmark executables, performance/allocation counters, result schemas, and external comparison adapters. They are retained temporarily for continuity, but are **not** part of the installed package.
+Bench v0.5.0 commit `acd9a77f9aa0fbb6edd569eb24c78b4694b442ed` has bench-native **definition/source parity for all 11 retained default empirical executables** at this repository's pinned revision, including the historically distinct 23-algorithm `sort_lab` treatment.
 
-The intended migration boundary is documented in [`docs/bench-migration.md`](docs/bench-migration.md). Theoretical material, algorithm implementations, correctness tests, API documentation, algorithm metadata, and sorting-specific references remain here.
+That does **not** authorize deletion yet. Replacement campaigns must actually be executed, checksum-verified, analyzed with `bench-analysis-v3`, reported, and accepted through bench's machine-readable migration gate. If historical evidence is registered, its verified import and explicit accepted comparison are also required.
+
+The study-by-study subject view and ownership rules are in [`docs/research-migration-status.md`](docs/research-migration-status.md). The broader migration boundary is in [`docs/bench-migration.md`](docs/bench-migration.md).
+
+Algorithm implementations, correctness contracts, API documentation, theory/references, and sorting-specific reconstruction assets remain subject-owned. Generic campaign/statistics/report/provenance/evidence-acceptance mechanics belong in `bench`.
 
 ## Completeness
 

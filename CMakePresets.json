@@ -42,18 +42,30 @@
       "cacheVariables": {
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/package-prefix"
       }
+    },
+    {
+      "name": "retained-research",
+      "displayName": "Retained Research Reproduction",
+      "inherits": "release",
+      "binaryDir": "${sourceDir}/build/retained-research",
+      "cacheVariables": {
+        "SORTLAB_BUILD_RETAINED_RESEARCH": "ON",
+        "SORTLAB_BUILD_TESTS": "ON"
+      }
     }
   ],
   "buildPresets": [
     {"name": "dev", "configurePreset": "dev", "configuration": "Debug"},
     {"name": "release", "configurePreset": "release", "configuration": "Release"},
     {"name": "sanitize", "configurePreset": "sanitize", "configuration": "Debug"},
-    {"name": "package", "configurePreset": "package", "configuration": "Release", "targets": ["install"]}
+    {"name": "package", "configurePreset": "package", "configuration": "Release", "targets": ["install"]},
+    {"name": "retained-research", "configurePreset": "retained-research", "configuration": "Release"}
   ],
   "testPresets": [
     {"name": "dev", "configurePreset": "dev", "configuration": "Debug", "output": {"outputOnFailure": true}},
     {"name": "release", "configurePreset": "release", "configuration": "Release", "output": {"outputOnFailure": true}},
     {"name": "sanitize", "configurePreset": "sanitize", "configuration": "Debug", "output": {"outputOnFailure": true}},
-    {"name": "package", "configurePreset": "package", "configuration": "Release", "output": {"outputOnFailure": true}}
+    {"name": "package", "configurePreset": "package", "configuration": "Release", "output": {"outputOnFailure": true}},
+    {"name": "retained-research", "configurePreset": "retained-research", "configuration": "Release", "output": {"outputOnFailure": true}}
   ]
 }

@@ -10,19 +10,23 @@ The permanent library is generic, instrumentable without benchmark state, instal
 
 ## Benchmark/research migration debt
 
+Bench v0.5.0 commit `acd9a77f9aa0fbb6edd569eb24c78b4694b442ed` has exact definition/source parity for all 11 retained default empirical executables. The remaining debt is therefore primarily **evidence acceptance and cleanup**, not inventing more generic benchmark machinery inside this repository.
+
 | Area | Current state | Destination / action |
 |---|---|---|
-| benchmark executables | retained for continuity but not installed API | migrate sorting experiments to `EddyTodd/bench` |
-| campaign specifications | retained under `campaigns/` | move to bench-side experiment definitions |
-| statistics/reducers | retained under `tools/` | consolidate generic analysis in `bench` |
-| evidence/claim ledger | historical research state remains | migrate generic evidence framework to `bench` |
-| provenance/manifests | current experiment machinery remains | centralize in `bench` |
-| hardware counters | Linux-specific research tooling remains | capability-based bench module |
-| allocation measurement | research-only executable remains | bench measurement adapter |
-| external baselines | pdqsort/IPS4o comparison track retained | bench external-comparison experiment |
-| workload generators | synthetic research workloads remain | bench sorting workload module where appropriate |
+| empirical executables | 11/11 default treatments have exact bench definitions; sources retained | execute replacement campaigns, pass bench migration gate, then delete study-by-study |
+| campaign specifications | historical subject campaign contracts remain | preserve until accepted evidence/reconstruction no longer needs them; new orchestration belongs in bench |
+| statistics/reducers | historical sorting-specific tools retained | generic inference/reporting is in bench; retain only sorting-specific theory/model logic after cleanup |
+| evidence/claim ledger | historical contract/state retained; no committed raw result datasets | bench owns generic evidence indexing/import/acceptance |
+| provenance/manifests | subject reconstruction metadata remains | bench owns generic provenance/integrity; subject keeps algorithm/vendor identity needed for reconstruction |
+| hardware counters | historical Linux-specific study retained | exact bench perf treatment exists; delete only after evidence acceptance |
+| allocation measurement | historical allocation study retained | exact bench allocation treatment exists; delete only after evidence acceptance |
+| external baselines | pinned pdqsort/IPS4o reconstruction retained | bench owns the empirical comparison; subject currently retains pinned checkout/bootstrap provenance |
+| workload generators | sorting-specific historical inputs remain shared by retained treatments | remove only after no retained empirical/correctness contract uses them |
 
-See `docs/bench-migration.md` for the concrete file boundary.
+See `docs/research-migration-status.md` for the study-by-study gate and `docs/bench-migration.md` for the file-ownership boundary.
+
+The old `SORTLAB_BUILD_RESEARCH_TOOLS` CMake switch is now only a deprecated compatibility alias. `SORTLAB_BUILD_RETAINED_RESEARCH` and the `retained-research` preset make the evidence-reproduction role explicit while keeping the default/package surface clean.
 
 ## Future sorting domains, not v1 blockers
 
@@ -52,4 +56,4 @@ No performance ranking is part of the v1 definition of done. Existing untested h
 
 ## Debt policy
 
-A future item is a core blocker only if it prevents correct reusable use of the declared v1 API or invalidates a declared algorithm guarantee. Performance research, additional variants, architecture-specific optimization, and new execution domains are tracked separately.
+A future item is a core blocker only if it prevents correct reusable use of the declared v1 API or invalidates a declared algorithm guarantee. Performance research, additional variants, architecture-specific optimization, evidence campaigns, and new execution domains are tracked separately.
