@@ -1,6 +1,6 @@
 # Contributing
 
-`sortlab` v1 is first a reusable C++23 algorithm library. The retained benchmark/research layer is temporary and will move to `EddyTodd/bench`.
+`sortlab` v1 is first a reusable C++23 algorithm library. The retained empirical layer is compatibility/evidence material while exact treatments move through `EddyTodd/bench` acceptance.
 
 ## Core algorithm contributions
 
@@ -29,9 +29,13 @@ Distribution algorithms must test signed/unsigned boundaries and reject invalid 
 
 `sortlab::instrumented` functions use the same implementation as their normal counterpart. Observer events are algorithmic events only. Do not add cache, branch, energy, timing, affinity, or machine-provenance logic to the core library; those belong in `bench`.
 
-## Research compatibility layer
+## Retained research compatibility layer
 
-The current `src/sort_*`, workload generators, campaigns, analysis scripts, counters, and evidence machinery are retained for continuity. Avoid expanding that framework here. Generic experimental infrastructure should be implemented in `EddyTodd/bench`; sorting-specific experiments there should consume the installed `sortlab::sortlab` target.
+`research/apps/`, `research/include/`, historical campaign/analysis assets, and external-baseline reconstruction tooling remain only for continuity and evidence reproduction. Avoid expanding generic experimental infrastructure here. Generic timing, PMU/allocation collection, orchestration, statistics, reporting, provenance, historical import, and migration acceptance belong in `EddyTodd/bench`.
+
+Bench v0.5 has exact definition/source parity for the 11 retained default empirical executables, but that does not make them deletion-safe. Before removing an empirical source, consult `docs/research-migration-status.md` and require the corresponding bench migration gate to pass with real replacement evidence.
+
+Algorithm correctness/theory/reconstruction contracts do not automatically migrate with empirical executables. For example, the adaptive-record kernel contract and pinned external-source provenance remain subject-owned while they serve those roles.
 
 External algorithms such as pdqsort and IPS4o remain opt-in comparison dependencies and must not become required core dependencies merely to increase coverage.
 
@@ -55,6 +59,14 @@ cmake --build build-san -j
 ctest --test-dir build-san --output-on-failure
 ```
 
-The retained research targets are opt-in with `-DSORTLAB_BUILD_RESEARCH_TOOLS=ON`.
+Retained research validation is explicit:
+
+```sh
+cmake --preset retained-research
+cmake --build --preset retained-research
+ctest --preset retained-research
+```
+
+The canonical switch is `-DSORTLAB_BUILD_RETAINED_RESEARCH=ON`; `SORTLAB_BUILD_RESEARCH_TOOLS=ON` is only a deprecated compatibility alias.
 
 Before changing install/export logic, also test installation into a temporary prefix and consumption from a separate `find_package(sortlab CONFIG REQUIRED)` project.
