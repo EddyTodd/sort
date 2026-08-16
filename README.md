@@ -2,12 +2,12 @@
 
 A C++23 library and study of **how different sorting algorithms actually behave**.
 
-The repository is useful on its own: it contains reusable algorithms, deterministic correctness tests, operation instrumentation, and the theory needed to understand the implementations. Cross-algorithm performance experiments live in [`EddyTodd/bench`](https://github.com/EddyTodd/bench).
+This repository is useful independently: it contains reusable algorithms, deterministic correctness tests, operation instrumentation, and the theory needed to understand the implementations. Cross-algorithm performance research lives in [`EddyTodd/bench`](https://github.com/EddyTodd/bench).
 
 ## Use it
 
 ```cpp
-#include <sortlab/sort.hpp>
+#include <sortlab/sortlab.hpp>
 
 #include <vector>
 
@@ -63,11 +63,11 @@ Optional instrumentation counts operations using the same permanent implementati
 ./bench run sort
 ```
 
-## Read more
+## Documentation
 
 - [`docs/algorithm-catalog.md`](docs/algorithm-catalog.md) — mechanisms and guarantees
 - [`docs/theory.md`](docs/theory.md) — why the algorithms work and how they differ
-- [`docs/library-api.md`](docs/library-api.md) — public API and instrumentation
+- [`docs/api.md`](docs/api.md) — public API and instrumentation
 - [`docs/development.md`](docs/development.md) — build options and package validation
 - [`docs/scope.md`](docs/scope.md) — deliberate v1 boundary
 - [`docs/references.md`](docs/references.md) — literature

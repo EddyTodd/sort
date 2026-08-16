@@ -19,24 +19,25 @@ endif()
 include(cmake/ProjectOptions.cmake)
 
 set(SORTLAB_PUBLIC_HEADERS
-  include/sortlab/sort.hpp
-  include/sortlab/version.hpp
-  include/sortlab/instrumentation.hpp
+  include/sortlab/adaptive.hpp
+  include/sortlab/adaptive_options.hpp
+  include/sortlab/comparison.hpp
   include/sortlab/detail.hpp
-  include/sortlab/detail/comparison_elementary.hpp
-  include/sortlab/detail/comparison_merge.hpp
-  include/sortlab/detail/comparison_quick.hpp
   include/sortlab/detail/adaptive_common.hpp
   include/sortlab/detail/adaptive_merger.hpp
   include/sortlab/detail/adaptive_schedule.hpp
-  include/sortlab/comparison.hpp
-  include/sortlab/instrumented_comparison.hpp
-  include/sortlab/adaptive_options.hpp
-  include/sortlab/adaptive.hpp
-  include/sortlab/stable_inplace.hpp
+  include/sortlab/detail/comparison_elementary.hpp
+  include/sortlab/detail/comparison_merge.hpp
+  include/sortlab/detail/comparison_quick.hpp
   include/sortlab/distribution.hpp
+  include/sortlab/instrumentation.hpp
+  include/sortlab/instrumented_comparison.hpp
+  include/sortlab/metadata.hpp
+  include/sortlab/sort.hpp
+  include/sortlab/sortlab.hpp
+  include/sortlab/stable_inplace.hpp
   include/sortlab/tiny.hpp
-  include/sortlab/metadata.hpp)
+  include/sortlab/version.hpp)
 
 add_library(sortlab INTERFACE)
 add_library(sortlab::sortlab ALIAS sortlab)

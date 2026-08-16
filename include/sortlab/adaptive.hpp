@@ -16,39 +16,39 @@ namespace instrumented {
 template <std::random_access_iterator I, class Observer, class Comp = std::ranges::less,
           class Proj = std::identity>
 requires std::sortable<I, Comp, Proj>
-void timsort(I first, I last, Observer& observer, AdaptiveSortOptions options = {}, Comp comp = {},
-             Proj proj = {}) {
-    detail::adaptive_context<I, Comp, Proj, Observer> context(
-        first, last, std::move(comp), std::move(proj), observer, options);
-    detail::timsort_with_context(context);
+void timsort(I first, I last, Observer& observer, Comp comp = {}, Proj proj = {},
+             AdaptiveSortOptions options = {}) {
+    detail::operations<Comp, Proj, Observer> operations(std::move(comp), std::move(proj),
+                                                        observer);
+    detail::timsort_impl(first, last, operations, options);
 }
 
 template <std::ranges::random_access_range R, class Observer, class Comp = std::ranges::less,
           class Proj = std::identity>
 requires std::sortable<std::ranges::iterator_t<R>, Comp, Proj>
-void timsort(R&& range, Observer& observer, AdaptiveSortOptions options = {}, Comp comp = {},
-             Proj proj = {}) {
-    timsort(std::ranges::begin(range), std::ranges::end(range), observer, options,
-            std::move(comp), std::move(proj));
+void timsort(R&& range, Observer& observer, Comp comp = {}, Proj proj = {},
+             AdaptiveSortOptions options = {}) {
+    timsort(std::ranges::begin(range), std::ranges::end(range), observer, std::move(comp),
+            std::move(proj), options);
 }
 
 template <std::random_access_iterator I, class Observer, class Comp = std::ranges::less,
           class Proj = std::identity>
 requires std::sortable<I, Comp, Proj>
-void powersort(I first, I last, Observer& observer, AdaptiveSortOptions options = {},
-               Comp comp = {}, Proj proj = {}) {
-    detail::adaptive_context<I, Comp, Proj, Observer> context(
-        first, last, std::move(comp), std::move(proj), observer, options);
-    detail::powersort_with_context(context);
+void powersort(I first, I last, Observer& observer, Comp comp = {}, Proj proj = {},
+               AdaptiveSortOptions options = {}) {
+    detail::operations<Comp, Proj, Observer> operations(std::move(comp), std::move(proj),
+                                                        observer);
+    detail::powersort_impl(first, last, operations, options);
 }
 
 template <std::ranges::random_access_range R, class Observer, class Comp = std::ranges::less,
           class Proj = std::identity>
 requires std::sortable<std::ranges::iterator_t<R>, Comp, Proj>
-void powersort(R&& range, Observer& observer, AdaptiveSortOptions options = {}, Comp comp = {},
-               Proj proj = {}) {
-    powersort(std::ranges::begin(range), std::ranges::end(range), observer, options,
-              std::move(comp), std::move(proj));
+void powersort(R&& range, Observer& observer, Comp comp = {}, Proj proj = {},
+               AdaptiveSortOptions options = {}) {
+    powersort(std::ranges::begin(range), std::ranges::end(range), observer, std::move(comp),
+              std::move(proj), options);
 }
 
 }  // namespace instrumented
@@ -56,33 +56,34 @@ void powersort(R&& range, Observer& observer, AdaptiveSortOptions options = {}, 
 template <std::random_access_iterator I, class Comp = std::ranges::less,
           class Proj = std::identity>
 requires std::sortable<I, Comp, Proj>
-void timsort(I first, I last, AdaptiveSortOptions options = {}, Comp comp = {}, Proj proj = {}) {
+void timsort(I first, I last, Comp comp = {}, Proj proj = {}, AdaptiveSortOptions options = {}) {
     null_observer observer;
-    instrumented::timsort(first, last, observer, options, std::move(comp), std::move(proj));
+    instrumented::timsort(first, last, observer, std::move(comp), std::move(proj), options);
 }
 
 template <std::ranges::random_access_range R, class Comp = std::ranges::less,
           class Proj = std::identity>
 requires std::sortable<std::ranges::iterator_t<R>, Comp, Proj>
-void timsort(R&& range, AdaptiveSortOptions options = {}, Comp comp = {}, Proj proj = {}) {
-    timsort(std::ranges::begin(range), std::ranges::end(range), options, std::move(comp),
-            std::move(proj));
+void timsort(R&& range, Comp comp = {}, Proj proj = {}, AdaptiveSortOptions options = {}) {
+    timsort(std::ranges::begin(range), std::ranges::end(range), std::move(comp), std::move(proj),
+            options);
 }
 
 template <std::random_access_iterator I, class Comp = std::ranges::less,
           class Proj = std::identity>
 requires std::sortable<I, Comp, Proj>
-void powersort(I first, I last, AdaptiveSortOptions options = {}, Comp comp = {}, Proj proj = {}) {
+void powersort(I first, I last, Comp comp = {}, Proj proj = {},
+               AdaptiveSortOptions options = {}) {
     null_observer observer;
-    instrumented::powersort(first, last, observer, options, std::move(comp), std::move(proj));
+    instrumented::powersort(first, last, observer, std::move(comp), std::move(proj), options);
 }
 
 template <std::ranges::random_access_range R, class Comp = std::ranges::less,
           class Proj = std::identity>
 requires std::sortable<std::ranges::iterator_t<R>, Comp, Proj>
-void powersort(R&& range, AdaptiveSortOptions options = {}, Comp comp = {}, Proj proj = {}) {
-    powersort(std::ranges::begin(range), std::ranges::end(range), options, std::move(comp),
-              std::move(proj));
+void powersort(R&& range, Comp comp = {}, Proj proj = {}, AdaptiveSortOptions options = {}) {
+    powersort(std::ranges::begin(range), std::ranges::end(range), std::move(comp),
+              std::move(proj), options);
 }
 
 }  // namespace sortlab

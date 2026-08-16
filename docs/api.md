@@ -1,14 +1,14 @@
-# Library API
+# API
 
 ## Entry point
 
 Most consumers should include:
 
 ```cpp
-#include <sortlab/sort.hpp>
+#include <sortlab/sortlab.hpp>
 ```
 
-The package is header-only and exports the CMake target `sortlab::sortlab`.
+`<sortlab/sort.hpp>` remains a compatibility forwarding header. The package is header-only and exports the CMake target `sortlab::sortlab`.
 
 ## Comparison algorithms
 
@@ -32,36 +32,28 @@ The comparator is applied to projected values via `std::invoke` semantics.
 
 The common baseline is the C++ `std::sortable`/permutable random-access contract.
 
-Algorithms that do not need a pivot snapshot support move-only value types when their move construction/assignment and swapping satisfy that contract. The test suite exercises move-only values through insertion, heap, merge, stable in-place merge, TimSort, and Powersort.
+Algorithms that do not need a pivot snapshot support move-only value types when their move construction/assignment and swapping satisfy that contract. The test suite exercises move-only values through insertion, heap, merge, stable in-place merge, TimSort, and PowerSort.
 
 The quicksort family currently stores pivot values and therefore additionally requires `std::copy_constructible<value_type>`. This is an explicit API contract, not an accidental benchmark limitation.
 
 ## Stability
 
-Stable comparison algorithms:
-
-- insertion sort;
-- binary insertion sort;
-- bubble sort;
-- top-down and bottom-up merge sort;
-- natural merge sort;
-- merge+insertion hybrid;
-- stable in-place rotation merge sort;
-- TimSort;
-- Powersort.
+Stable comparison algorithms include insertion sort, binary insertion sort, bubble sort, top-down and bottom-up merge sort, natural merge sort, the merge/insertion hybrid, stable in-place rotation merge sort, TimSort, and PowerSort.
 
 Stable algorithms use comparator equivalence: neither `comp(proj(a), proj(b))` nor `comp(proj(b), proj(a))` is true.
 
 ## Adaptive options
 
-`sortlab::adaptive_options` controls the initial TimSort/Powersort adaptive state:
+`sortlab::AdaptiveSortOptions` controls the initial TimSort/PowerSort adaptive state:
 
 ```cpp
-sortlab::adaptive_options options;
+sortlab::AdaptiveSortOptions options;
 options.min_gallop = 7;
 options.min_merge = 32;
 sortlab::timsort(values, std::ranges::less{}, std::identity{}, options);
 ```
+
+`sortlab::adaptive_options` remains an alias for source compatibility.
 
 `min_gallop` is only the initial threshold. The production merge kernel adjusts it dynamically based on whether gallop phases are productive.
 

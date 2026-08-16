@@ -1,4 +1,4 @@
-#include <sortlab/sort.hpp>
+#include <sortlab/sortlab.hpp>
 
 #include <array>
 #include <ranges>
