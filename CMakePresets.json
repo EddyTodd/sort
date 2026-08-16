@@ -45,7 +45,7 @@
     {"name": "dev", "configurePreset": "dev", "configuration": "Debug"},
     {"name": "release", "configurePreset": "release", "configuration": "Release"},
     {"name": "sanitize", "configurePreset": "sanitize", "configuration": "Debug"},
-    {"name": "package", "configurePreset": "package", "configuration": "Release", "targets": ["install"]}
+    {"name": "package", "configurePreset": "package", "configuration": "Release"}
   ],
   "testPresets": [
     {"name": "dev", "configurePreset": "dev", "configuration": "Debug", "output": {"outputOnFailure": true}},
