@@ -1,6 +1,7 @@
 #pragma once
 
 #include "sortlab/adaptive_options.hpp"
+#include "sortlab/detail.hpp"
 #include "sortlab/detail/adaptive_schedule.hpp"
 #include "sortlab/instrumentation.hpp"
 
