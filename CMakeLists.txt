@@ -8,6 +8,8 @@ include(CTest)
 option(SORTLAB_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(SORTLAB_WARNINGS_AS_ERRORS "Treat sortlab warnings as errors" ${PROJECT_IS_TOP_LEVEL})
 option(SORTLAB_BUILD_TESTS "Build deterministic sortlab correctness tests" ${PROJECT_IS_TOP_LEVEL})
+option(SORTLAB_BUILD_EXAMPLES "Build small sortlab usage examples" ${PROJECT_IS_TOP_LEVEL})
+option(SORTLAB_BUILD_PACKAGE_TESTS "Run downstream installed-package validation" OFF)
 
 include(cmake/ProjectOptions.cmake)
 
@@ -41,6 +43,10 @@ target_sources(sortlab INTERFACE
   FILE_SET public_headers TYPE HEADERS
   BASE_DIRS ${PROJECT_SOURCE_DIR}/include
   FILES ${SORTLAB_PUBLIC_HEADERS})
+
+if(SORTLAB_BUILD_EXAMPLES)
+  add_subdirectory(examples)
+endif()
 
 if(BUILD_TESTING AND SORTLAB_BUILD_TESTS)
   add_subdirectory(tests)
