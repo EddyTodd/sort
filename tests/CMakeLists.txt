@@ -15,6 +15,7 @@ endfunction()
 
 sortlab_add_test(library test_library.cpp)
 sortlab_add_test(adaptive-options test_adaptive_options.cpp)
+sortlab_add_test(differential test_differential.cpp)
 
 if(SORTLAB_BUILD_PACKAGE_TESTS AND NOT SORTLAB_ENABLE_SANITIZERS)
   include(${PROJECT_SOURCE_DIR}/cmake/PackageConsumerTest.cmake)
