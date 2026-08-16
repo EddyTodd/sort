@@ -1,6 +1,10 @@
 {
   "version": 4,
-  "cmakeMinimumRequired": {"major": 3, "minor": 23, "patch": 0},
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 23,
+    "patch": 0
+  },
   "configurePresets": [
     {
       "name": "dev",
@@ -42,15 +46,51 @@
     }
   ],
   "buildPresets": [
-    {"name": "dev", "configurePreset": "dev", "configuration": "Debug"},
-    {"name": "release", "configurePreset": "release", "configuration": "Release"},
-    {"name": "sanitize", "configurePreset": "sanitize", "configuration": "Debug"},
-    {"name": "package", "configurePreset": "package", "configuration": "Release"}
+    {
+      "name": "dev",
+      "configurePreset": "dev",
+      "configuration": "Debug"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "configuration": "Release"
+    },
+    {
+      "name": "sanitize",
+      "configurePreset": "sanitize",
+      "configuration": "Debug"
+    },
+    {
+      "name": "package",
+      "configurePreset": "package",
+      "configuration": "Release"
+    }
   ],
   "testPresets": [
-    {"name": "dev", "configurePreset": "dev", "configuration": "Debug", "output": {"outputOnFailure": true}},
-    {"name": "release", "configurePreset": "release", "configuration": "Release", "output": {"outputOnFailure": true}},
-    {"name": "sanitize", "configurePreset": "sanitize", "configuration": "Debug", "output": {"outputOnFailure": true}},
-    {"name": "package", "configurePreset": "package", "configuration": "Release", "output": {"outputOnFailure": true}}
+    {
+      "name": "dev",
+      "configurePreset": "dev",
+      "configuration": "Debug",
+      "output": {"outputOnFailure": true}
+    },
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "configuration": "Release",
+      "output": {"outputOnFailure": true}
+    },
+    {
+      "name": "sanitize",
+      "configurePreset": "sanitize",
+      "configuration": "Debug",
+      "output": {"outputOnFailure": true}
+    },
+    {
+      "name": "package",
+      "configurePreset": "package",
+      "configuration": "Release",
+      "output": {"outputOnFailure": true}
+    }
   ]
 }

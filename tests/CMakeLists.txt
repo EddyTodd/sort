@@ -13,8 +13,8 @@ function(sortlab_add_test name source)
   add_test(NAME "sortlab.${name}" COMMAND ${target})
 endfunction()
 
-sortlab_add_test(library library_tests.cpp)
-sortlab_add_test(adaptive-options adaptive_option_contract.cpp)
+sortlab_add_test(library test_library.cpp)
+sortlab_add_test(adaptive-options test_adaptive_options.cpp)
 
 if(SORTLAB_BUILD_PACKAGE_TESTS AND NOT SORTLAB_ENABLE_SANITIZERS)
   include(${PROJECT_SOURCE_DIR}/cmake/PackageConsumerTest.cmake)
