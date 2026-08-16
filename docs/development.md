@@ -1,8 +1,8 @@
-# Development workflow
+# Development
 
-The repository has one build surface: the permanent header-only library and its deterministic correctness/package tests.
+A top-level checkout builds the header-only library, correctness tests, and the small usage example. When `sortlab` is added as a subdirectory of another project, tests and examples default off.
 
-## Debug
+## Normal workflow
 
 ```bash
 cmake --preset dev
@@ -10,25 +10,18 @@ cmake --build --preset dev
 ctest --preset dev
 ```
 
-## Release
+Use `release` for optimized builds and `sanitize` for ASan/UBSan with warnings-as-errors.
 
-```bash
-cmake --preset release
-cmake --build --preset release
-ctest --preset release
-```
+The key options are:
 
-## Sanitizers
+- `SORTLAB_BUILD_TESTS` — deterministic correctness tests;
+- `SORTLAB_BUILD_EXAMPLES` — small standalone usage examples;
+- `SORTLAB_ENABLE_SANITIZERS` — ASan/UBSan on supported non-MSVC compilers;
+- `SORTLAB_WARNINGS_AS_ERRORS` — promote compiler warnings to errors.
 
-```bash
-cmake --preset sanitize
-cmake --build --preset sanitize
-ctest --preset sanitize
-```
+## Installed package validation
 
-The sanitizer preset enables ASan/UBSan and warnings-as-errors on supported non-MSVC compilers.
-
-## Package validation
+Package validation is intentionally separate from the normal test loop:
 
 ```bash
 cmake --preset package
@@ -36,8 +29,8 @@ cmake --build --preset package
 ctest --preset package
 ```
 
-The package test installs the header-only target, relocates the install tree, and consumes it from a separate CMake project. Public-header self-containment is compiled from the target-owned header file set.
+That preset enables `SORTLAB_BUILD_PACKAGE_TESTS`, installs the library into a local prefix, relocates it, and verifies a separate `find_package(sortlab CONFIG REQUIRED)` consumer. Ordinary `dev` and `release` tests do not pay that cost.
 
 Machine/compiler overrides belong in ignored `CMakeUserPresets.json`.
 
-Performance experiments and empirical tooling belong in `EddyTodd/bench`, not in this repository.
+Performance experiments belong in `EddyTodd/bench`; algorithm implementations, correctness, instrumentation, and theory remain here.

@@ -1,10 +1,10 @@
 # sort
 
-A C++23 study of **how different sorting algorithms actually behave**.
+A C++23 library and study of **how different sorting algorithms actually behave**.
 
-The repository keeps the algorithms, their correctness tests, and the theory needed to understand them. Performance experiments live in [`EddyTodd/bench`](https://github.com/EddyTodd/bench), so the sorting code stays easy to inspect and reuse.
+The repository is useful on its own: it contains reusable algorithms, deterministic correctness tests, operation instrumentation, and the theory needed to understand the implementations. Cross-algorithm performance experiments live in [`EddyTodd/bench`](https://github.com/EddyTodd/bench).
 
-## Try it
+## Use it
 
 ```cpp
 #include <sortlab/sort.hpp>
@@ -15,15 +15,31 @@ std::vector<int> values{5, 1, 4, 1, 3};
 sortlab::intro_sort(values);
 ```
 
-Comparison algorithms use ordinary random-access iterators/ranges and support comparators and projections where appropriate.
+Comparison algorithms accept random-access iterators or ranges and support comparators and projections where appropriate.
 
-Build and run the correctness suite:
+As a CMake subdirectory:
+
+```cmake
+add_subdirectory(path/to/sort)
+target_link_libraries(app PRIVATE sortlab::sortlab)
+```
+
+Or consume an installed package:
+
+```cmake
+find_package(sortlab 1 CONFIG REQUIRED)
+target_link_libraries(app PRIVATE sortlab::sortlab)
+```
+
+## Build and test
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel
-ctest --test-dir build --output-on-failure
+cmake --preset release
+cmake --build --preset release
+ctest --preset release
 ```
+
+A small compile-checked example is built in a top-level checkout. `dev`, `release`, and `sanitize` run the normal library/correctness workflow; the separate `package` preset performs downstream install/relocation validation.
 
 ## Algorithms
 
@@ -41,12 +57,10 @@ Optional instrumentation counts operations using the same permanent implementati
 
 ## Research
 
-`bench` answers the empirical questions: crossover sizes, input-distribution sensitivity, insertion cutoffs, stability and payload costs, operation/allocation tradeoffs, adaptive behavior, and external baselines.
-
-From the `bench` repository, the default sorting study is intended to be runnable as:
+`bench` answers empirical questions such as crossover sizes, input-distribution sensitivity, insertion cutoffs, stability and payload costs, operation/allocation tradeoffs, and adaptive behavior:
 
 ```bash
-python3 -m benchctl run sort
+./bench run sort
 ```
 
 ## Read more
@@ -54,6 +68,7 @@ python3 -m benchctl run sort
 - [`docs/algorithm-catalog.md`](docs/algorithm-catalog.md) — mechanisms and guarantees
 - [`docs/theory.md`](docs/theory.md) — why the algorithms work and how they differ
 - [`docs/library-api.md`](docs/library-api.md) — public API and instrumentation
+- [`docs/development.md`](docs/development.md) — build options and package validation
 - [`docs/scope.md`](docs/scope.md) — deliberate v1 boundary
 - [`docs/references.md`](docs/references.md) — literature
 
