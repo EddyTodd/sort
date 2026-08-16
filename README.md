@@ -1,8 +1,10 @@
-# sortlab
+# sort
 
-`sortlab` is a header-only C++23 library of sequential in-memory sorting algorithms. It focuses on reusable generic APIs, representative algorithm mechanisms, deterministic correctness, stability semantics, and optional operation instrumentation. Empirical performance research lives in [`EddyTodd/bench`](https://github.com/EddyTodd/bench).
+A C++23 study of **how different sorting algorithms actually behave**.
 
-## Use
+The repository keeps the algorithms, their correctness tests, and the theory needed to understand them. Performance experiments live in [`EddyTodd/bench`](https://github.com/EddyTodd/bench), so the sorting code stays easy to inspect and reuse.
+
+## Try it
 
 ```cpp
 #include <sortlab/sort.hpp>
@@ -13,76 +15,47 @@ std::vector<int> values{5, 1, 4, 1, 3};
 sortlab::intro_sort(values);
 ```
 
-Comparison algorithms accept random-access iterators or ranges and support comparators and projections where applicable:
+Comparison algorithms use ordinary random-access iterators/ranges and support comparators and projections where appropriate.
 
-```cpp
-struct row {
-    int key;
-    std::string payload;
-};
-
-std::vector<row> rows = /* ... */;
-sortlab::timsort(rows, std::ranges::less{}, &row::key);
-```
-
-Instrumentation uses the same algorithm implementations rather than benchmark-only copies:
-
-```cpp
-sortlab::operation_counts counts;
-sortlab::counting_observer observer(counts);
-sortlab::instrumented::merge_sort(values.begin(), values.end(), observer);
-```
-
-## Scope
-
-Version 1 covers sequential in-memory CPU sorting. The catalog includes:
-
-- insertion, selection, bubble, comb, Shell, heap, merge, quicksort, and introspective families;
-- merge/insertion and quick/insertion hybrids with configurable leaf cutoffs;
-- natural merge sort and stable in-place divide/rotate merge sort;
-- TimSort and PowerSort with shared adaptive stable merging;
-- stable LSD radix, in-place MSD radix permutation, and bounded-domain counting sort for integral domains;
-- generic bitonic sorting-network construction for tiny/data-oblivious workloads.
-
-Parallel, GPU, distributed, external-memory, architecture-specific SIMD sorters, and exhaustive optimal-network catalogs are outside v1.
-
-## Correctness
-
-The deterministic suite covers empty/tiny inputs, sorted/reversed/equal/duplicate-heavy/random data, signed integer extremes, comparator/projection behavior, declared stability, move-only values where supported, adaptive run geometry, galloping, radix boundaries, counting-sort domain rejection, metadata consistency, and instrumentation contracts.
-
-## Build
+Build and run the correctness suite:
 
 ```bash
-cmake --preset dev
-cmake --build --preset dev
-ctest --preset dev
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+ctest --test-dir build --output-on-failure
 ```
 
-`release`, `sanitize`, and `package` presets use the same interface.
+## Algorithms
 
-## Install
+The catalog is intentionally representative rather than exhaustive:
+
+- insertion, selection, bubble, comb, and Shell sort;
+- heap sort;
+- merge, natural merge, stable in-place merge, and merge/insertion hybrids;
+- Hoare, three-way, median-of-three, dual-pivot, hybrid quicksort, and introsort;
+- TimSort and PowerSort;
+- stable LSD radix, in-place MSD radix, and bounded counting sort;
+- bitonic sorting networks for tiny/data-oblivious cases.
+
+Optional instrumentation counts operations using the same permanent implementations; there are no benchmark-only copies of the algorithms.
+
+## Research
+
+`bench` answers the empirical questions: crossover sizes, input-distribution sensitivity, insertion cutoffs, stability and payload costs, operation/allocation tradeoffs, adaptive behavior, and external baselines.
+
+From the `bench` repository, the default sorting study is intended to be runnable as:
 
 ```bash
-cmake --preset package
-cmake --build --preset package
+python3 -m benchctl run sort
 ```
 
-Consumer:
+## Read more
 
-```cmake
-find_package(sortlab 1 CONFIG REQUIRED)
-target_link_libraries(your_target PRIVATE sortlab::sortlab)
-```
-
-## Documentation
-
+- [`docs/algorithm-catalog.md`](docs/algorithm-catalog.md) — mechanisms and guarantees
+- [`docs/theory.md`](docs/theory.md) — why the algorithms work and how they differ
 - [`docs/library-api.md`](docs/library-api.md) — public API and instrumentation
-- [`docs/algorithm-catalog.md`](docs/algorithm-catalog.md) — algorithm families and guarantees
-- [`docs/theory.md`](docs/theory.md) — algorithmic background and tradeoffs
-- [`docs/scope.md`](docs/scope.md) — v1 completeness and scope boundary
+- [`docs/scope.md`](docs/scope.md) — deliberate v1 boundary
 - [`docs/references.md`](docs/references.md) — literature
-
-Workload campaigns, cutoff inference, crossover analysis, external implementation comparisons, statistics, provenance, and reports are intentionally centralized in [`EddyTodd/bench`](https://github.com/EddyTodd/bench).
 
 ## License
 
