@@ -2,15 +2,20 @@ cmake_minimum_required(VERSION 3.23)
 project(sortlab VERSION 1.0.0 LANGUAGES CXX)
 
 include(GNUInstallDirs)
-include(CMakePackageConfigHelpers)
-include(CTest)
 
 option(SORTLAB_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(SORTLAB_WARNINGS_AS_ERRORS "Treat sortlab warnings as errors" ${PROJECT_IS_TOP_LEVEL})
 option(SORTLAB_BUILD_TESTS "Build deterministic sortlab correctness tests" ${PROJECT_IS_TOP_LEVEL})
 option(SORTLAB_BUILD_EXAMPLES "Build small sortlab usage examples" ${PROJECT_IS_TOP_LEVEL})
 option(SORTLAB_BUILD_PACKAGE_TESTS "Run downstream installed-package validation" OFF)
+option(SORTLAB_INSTALL "Enable sortlab install/package rules" ${PROJECT_IS_TOP_LEVEL})
 
+if(SORTLAB_BUILD_TESTS)
+  include(CTest)
+endif()
+if(SORTLAB_INSTALL)
+  include(CMakePackageConfigHelpers)
+endif()
 include(cmake/ProjectOptions.cmake)
 
 set(SORTLAB_PUBLIC_HEADERS
@@ -52,4 +57,6 @@ if(BUILD_TESTING AND SORTLAB_BUILD_TESTS)
   add_subdirectory(tests)
 endif()
 
-include(cmake/Install.cmake)
+if(SORTLAB_INSTALL)
+  include(cmake/Install.cmake)
+endif()
