@@ -1,6 +1,6 @@
 # Development
 
-A top-level checkout builds the header-only library, correctness tests, and the small usage example. When `sortlab` is added as a subdirectory of another project, tests and examples default off.
+A top-level checkout builds the header-only library, correctness tests, and the small usage example. When `sortlab` is added as a subdirectory of another project, tests, examples, and install rules default off so the dependency does not alter its parent's build surface.
 
 ## Normal workflow
 
@@ -16,6 +16,7 @@ The key options are:
 
 - `SORTLAB_BUILD_TESTS` — deterministic correctness tests;
 - `SORTLAB_BUILD_EXAMPLES` — small standalone usage examples;
+- `SORTLAB_INSTALL` — install/export/package rules (top-level by default);
 - `SORTLAB_ENABLE_SANITIZERS` — ASan/UBSan on supported non-MSVC compilers;
 - `SORTLAB_WARNINGS_AS_ERRORS` — promote compiler warnings to errors.
 
@@ -29,7 +30,7 @@ cmake --build --preset package
 ctest --preset package
 ```
 
-That preset enables `SORTLAB_BUILD_PACKAGE_TESTS`, installs the library into a local prefix, relocates it, and verifies a separate `find_package(sortlab CONFIG REQUIRED)` consumer. Ordinary `dev` and `release` tests do not pay that cost.
+That preset enables `SORTLAB_BUILD_PACKAGE_TESTS`, installs the library into an isolated local prefix during the package-consumer test, relocates it, and verifies a separate `find_package(sortlab CONFIG REQUIRED)` consumer. Ordinary `dev` and `release` tests do not pay that cost.
 
 Machine/compiler overrides belong in ignored `CMakeUserPresets.json`.
 
