@@ -39,7 +39,7 @@ cmake --build --preset release
 ctest --preset release
 ```
 
-A small compile-checked example is built in a top-level checkout. `dev`, `release`, and `sanitize` run the normal library/correctness workflow; the separate `package` preset performs downstream install/relocation validation.
+The build system is intentionally minimal: `dev` and `release` are the only shared presets, and project-specific CMake is limited to building the library, tests/examples, and optional install rules.
 
 ## Algorithms
 
@@ -57,18 +57,14 @@ Optional instrumentation counts operations using the same permanent implementati
 
 ## Research
 
-`bench` answers empirical questions such as crossover sizes, input-distribution sensitivity, insertion cutoffs, stability and payload costs, operation/allocation tradeoffs, and adaptive behavior:
-
-```bash
-./bench run sort
-```
+Performance measurement belongs outside this repository. `bench` can consume the normal public API, but `sort` does not depend on it.
 
 ## Documentation
 
 - [`docs/algorithm-catalog.md`](docs/algorithm-catalog.md) — mechanisms and guarantees
 - [`docs/theory.md`](docs/theory.md) — why the algorithms work and how they differ
 - [`docs/api.md`](docs/api.md) — public API and instrumentation
-- [`docs/development.md`](docs/development.md) — build options and package validation
+- [`docs/development.md`](docs/development.md) — build and install
 - [`docs/scope.md`](docs/scope.md) — deliberate v1 boundary
 - [`docs/references.md`](docs/references.md) — literature
 
