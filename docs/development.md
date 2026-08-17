@@ -1,8 +1,8 @@
 # Development
 
-A top-level checkout builds the header-only library, correctness tests, and the small usage example. When `sortlab` is added as a subdirectory of another project, tests, examples, and install rules default off so the dependency does not alter its parent's build surface.
+The build is intentionally small. A top-level checkout builds the header-only library, correctness tests, and example; when embedded with `add_subdirectory`, tests, examples, and install rules default off.
 
-## Normal workflow
+## Build and test
 
 ```bash
 cmake --preset dev
@@ -10,28 +10,24 @@ cmake --build --preset dev
 ctest --preset dev
 ```
 
-Use `release` for optimized builds and `sanitize` for ASan/UBSan with warnings-as-errors.
+Use the `release` preset for optimized builds.
 
-The key options are:
+Only three project options are needed:
 
-- `SORTLAB_BUILD_TESTS` — deterministic correctness tests;
-- `SORTLAB_BUILD_EXAMPLES` — small standalone usage examples;
-- `SORTLAB_INSTALL` — install/export/package rules (top-level by default);
-- `SORTLAB_ENABLE_SANITIZERS` — ASan/UBSan on supported non-MSVC compilers;
-- `SORTLAB_WARNINGS_AS_ERRORS` — promote compiler warnings to errors.
+- `SORTLAB_BUILD_TESTS` — build correctness tests;
+- `SORTLAB_BUILD_EXAMPLES` — build the usage example;
+- `SORTLAB_INSTALL` — enable install and `find_package` support.
 
-## Installed package validation
+Compiler warnings, sanitizers, coverage, and other developer policies are deliberately left to the parent project or ordinary CMake/compiler flags instead of being wrapped in repository-specific CMake helpers.
 
-Package validation is intentionally separate from the normal test loop:
+## Install
 
 ```bash
-cmake --preset package
-cmake --build --preset package
-ctest --preset package
+cmake --preset release
+cmake --build --preset release
+cmake --install build/release --prefix build/install
 ```
 
-That preset enables `SORTLAB_BUILD_PACKAGE_TESTS`, installs the library into an isolated local prefix during the package-consumer test, relocates it, and verifies a separate `find_package(sortlab CONFIG REQUIRED)` consumer. Ordinary `dev` and `release` tests do not pay that cost.
+The installed package exports `sortlab::sortlab` for `find_package(sortlab CONFIG REQUIRED)`.
 
-Machine/compiler overrides belong in ignored `CMakeUserPresets.json`.
-
-Performance experiments belong in `EddyTodd/bench`; algorithm implementations, correctness, instrumentation, and theory remain here.
+Performance measurement does not live in this repository. This project owns the algorithms, correctness tests, optional algorithm instrumentation, and theory.
